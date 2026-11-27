@@ -30,4 +30,5 @@ game.registry.set('hadSave', !!ls.w);
 game.registry.set('loadInfo', ls);
 game.scene.add('play', PlayScene, true);
 
-Object.assign(window, { game });
+import * as rules from './rules/world.js';
+Object.assign(window, { game, colonyRules: rules }); // for the smoke and perf scripts

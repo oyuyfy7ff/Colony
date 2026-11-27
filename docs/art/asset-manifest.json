@@ -1,0 +1,992 @@
+{
+ "schema_version": 1,
+ "art_direction_brief": "docs/art/art-direction.md",
+ "assets": [
+  {
+   "id": "arrow",
+   "role": "projectile",
+   "path": "src/art/sprites.js#arrow",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "7x3",
+    "alpha": true,
+    "anchor": "center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 4
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "bat_0",
+   "role": "enemy: bat wing frame",
+   "path": "src/art/sprites.js#bat_0",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "12x8",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 5
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "bat_1",
+   "role": "enemy: bat wing frame",
+   "path": "src/art/sprites.js#bat_1",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "12x8",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 5
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "bush",
+   "role": "resource: berry bush",
+   "path": "src/art/sprites.js#bush",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "bush_empty",
+   "role": "resource: berry bush",
+   "path": "src/art/sprites.js#bush_empty",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 5
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "farm",
+   "role": "building: farm",
+   "path": "src/art/sprites.js#farm",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 8
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "goblin_0",
+   "role": "enemy: goblin walk frame",
+   "path": "src/art/sprites.js#goblin_0",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "12x13",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "goblin_1",
+   "role": "enemy: goblin walk frame",
+   "path": "src/art/sprites.js#goblin_1",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "12x13",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "hall",
+   "role": "building: town hall (2x2)",
+   "path": "src/art/sprites.js#hall",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "32x34",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 10
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "house",
+   "role": "building: house",
+   "path": "src/art/sprites.js#house",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 7
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "ic_food",
+   "role": "HUD/float icon",
+   "path": "src/art/sprites.js#ic_food",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "6x6",
+    "alpha": true,
+    "anchor": "center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "ic_stone",
+   "role": "HUD/float icon",
+   "path": "src/art/sprites.js#ic_stone",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "6x6",
+    "alpha": true,
+    "anchor": "center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "ic_wood",
+   "role": "HUD/float icon",
+   "path": "src/art/sprites.js#ic_wood",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "6x6",
+    "alpha": true,
+    "anchor": "center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 5
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "puff",
+   "role": "particle",
+   "path": "src/art/sprites.js#puff",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "4x4",
+    "alpha": true,
+    "anchor": "center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 2
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "rock",
+   "role": "resource: rock",
+   "path": "src/art/sprites.js#rock",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "shadow",
+   "role": "unit drop shadow",
+   "path": "src/art/sprites.js#shadow",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x4",
+    "alpha": true,
+    "anchor": "center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 2
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "site",
+   "role": "building under construction",
+   "path": "src/art/sprites.js#site",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 4
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "slime",
+   "role": "enemy: slime",
+   "path": "src/art/sprites.js#slime",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "12x9",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "tower",
+   "role": "building: archer tower",
+   "path": "src/art/sprites.js#tower",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x28",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "tree",
+   "role": "resource: tree",
+   "path": "src/art/sprites.js#tree",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 7
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill0_0",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill0_0",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill0_1",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill0_1",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill1_0",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill1_0",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill1_1",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill1_1",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill2_0",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill2_0",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill2_1",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill2_1",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill3_0",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill3_0",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "vill3_1",
+   "role": "villager walk frame",
+   "path": "src/art/sprites.js#vill3_1",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "10x12",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  },
+  {
+   "id": "wall",
+   "role": "building: wall",
+   "path": "src/art/sprites.js#wall",
+   "status": "shipped",
+   "technical": {
+    "dimensions": "16x16",
+    "alpha": true,
+    "anchor": "bottom-center",
+    "frames": 1,
+    "filtering": "nearest",
+    "colors": 6
+   },
+   "visual_locks": [
+    "palette",
+    "1px dark outline",
+    "light from upper left"
+   ],
+   "source": {
+    "kind": "authored",
+    "url_or_tool": "hand-placed pixel rows / canvas rects in src/art/sprites.js",
+    "creator": "Claude Code (with the user)",
+    "created_at": "2026-11-27",
+    "license": "same as the project",
+    "attribution": "Palette based on Sweetie 16 by GrafxKid (public domain)",
+    "prompt_or_source_record": "no image generation used"
+   },
+   "verification": {
+    "native_scale_reviewed": true,
+    "in_engine_reviewed": true,
+    "technical_checks_passed": true,
+    "approved_by": ""
+   }
+  }
+ ]
+}

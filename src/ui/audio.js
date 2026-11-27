@@ -5,6 +5,8 @@
 // layer whose gain follows raid intensity. SFX get small random pitch and volume offsets.
 
 export const BPM = 96;
+export const MUSIC_TRIM = 5;   // voices are written quiet; one trim sets the music level (metered by tools/measure-audio.cjs)
+export const MASTER = 0.8;
 export const BAR = (60 / BPM) * 4;
 const SEMI = 2 ** (1 / 12);
 const midi = (n) => 440 * SEMI ** (n - 69);
@@ -62,8 +64,8 @@ export function scheduleBar(ctx, melody, drums, t0, bar, section, rnd = Math.ran
   const triad = [0, minor ? 3 : 4, 7, 12];
   const beat = BAR / 4;
   // bass on 1 and 3
-  tone(ctx, melody, t0, midi(root - 12), beat * 1.8, 'triangle', 0.32);
-  tone(ctx, melody, t0 + beat * 2, midi(root - 12), beat * 1.8, 'triangle', 0.26);
+  tone(ctx, melody, t0, midi(root - 12), beat * 1.8, 'triangle', 0.2);
+  tone(ctx, melody, t0 + beat * 2, midi(root - 12), beat * 1.8, 'triangle', 0.17);
   // soft pad: chord tones, long
   for (const iv of triad.slice(0, 3)) tone(ctx, melody, t0, midi(root + 12 + iv), BAR * 0.95, 'sine', 0.05);
   // arpeggio eighths, thinned by section density
@@ -78,7 +80,7 @@ export function scheduleBar(ctx, melody, drums, t0, bar, section, rnd = Math.ran
     for (const k of [0, 2]) {
       const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + k * beat;
       o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.15);
-      g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
       o.connect(g).connect(drums); o.start(t); o.stop(t + 0.25);
     }
   }
@@ -103,12 +105,12 @@ export class GameAudio {
     const limiter = ctx.createDynamicsCompressor(); // safety net at the end of the chain, not the mixer
     limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20;
     limiter.attack.value = 0.002; limiter.release.value = 0.1;
-    this.master = ctx.createGain(); this.master.gain.value = 0.5; // headroom for a ~-18 LUFS mobile mix
+    this.master = ctx.createGain(); this.master.gain.value = MASTER;
     this.master.connect(limiter).connect(ctx.destination);
     this.bus = {};
     for (const b of ['music', 'sfx', 'ui']) { this.bus[b] = ctx.createGain(); this.bus[b].connect(this.master); }
     this.duck = ctx.createGain(); this.duck.connect(this.bus.music);
-    this.melody = ctx.createGain(); this.melody.connect(this.duck);
+    this.melody = ctx.createGain(); this.melody.gain.value = MUSIC_TRIM; this.melody.connect(this.duck);
     this.drums = ctx.createGain(); this.drums.gain.value = 0; this.drums.connect(this.duck);
     this.applyVolumes();
     this.nextBarAt = ctx.currentTime + 0.1;
@@ -121,7 +123,7 @@ export class GameAudio {
     const s = this.settings;
     const g = (v) => Math.max(0, Math.min(1, v)) ** 2;
     const t = this.ctx.currentTime;
-    this.bus.music.gain.setTargetAtTime(g(s.music) * 0.6, t, 0.05);
+    this.bus.music.gain.setTargetAtTime(g(s.music), t, 0.05);
     this.bus.sfx.gain.setTargetAtTime(g(s.sfx), t, 0.05);
     this.bus.ui.gain.setTargetAtTime(g(s.sfx), t, 0.05);
   }
@@ -133,7 +135,7 @@ export class GameAudio {
     while (this.nextBarAt < ctx.currentTime + 0.3) {
       if (this.nextSection !== this.section && this.bar % 2 === 0) this.section = this.nextSection;
       scheduleBar(ctx, this.melody, this.drums, this.nextBarAt, this.bar, this.section);
-      this.drums.gain.setTargetAtTime(this.section === 'night' ? 0.35 + 0.65 * this.intensity : 0, this.nextBarAt, 0.4);
+      this.drums.gain.setTargetAtTime(this.section === 'night' ? MUSIC_TRIM * (0.35 + 0.65 * this.intensity) : 0, this.nextBarAt, 0.4);
       this.nextBarAt += BAR;
       this.bar++;
     }

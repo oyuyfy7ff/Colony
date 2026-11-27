@@ -8,7 +8,7 @@ export const PAL = {
   w: '#f4f4f4', s: '#94b0c2', S: '#566c86', D: '#333c57',
   n: '#a0663a', N: '#6b3d23', p: '#f2c7a0', h: '#4a2c1a',
   m: '#9a5bd8', M: '#5d2f8e', q: '#d7b0ff',
-  e: '#2e8b3d', E: '#1e5e2a',
+  e: '#2e8b3d', E: '#1e5e2a', a: '#3fbe6a', // a = alternate grass checker
 };
 
 function fromRows(rows, swap = {}) {
@@ -204,7 +204,7 @@ function tower() {
   return canvas(16, 28, (px) => {
     px(3, 8, 'k', 10, 20);
     px(4, 9, 's', 8, 18);
-    for (let y = 11; y < 27; y += 4) { px(4, y, 'S', 8, 1); px(7 + ((y / 4) % 2) * 2, y - 2, 'S', 1, 2); }
+    for (let y = 11; y < 27; y += 4) { px(4, y, 'S', 8, 1); px(7 + ((y >> 2) % 2) * 2, y - 2, 'S', 1, 2); }
     px(7, 14, 'k', 2, 4);
     px(4, 26, 'S', 8, 1);
     // wooden top
@@ -294,7 +294,7 @@ export function paintGround(world) {
       if (!water(tx, ty - 1)) { px(X, Y, 'c', TILE, 2); px(X, Y, 't', TILE, 1); }
       continue;
     }
-    px(X, Y, (tx + ty) % 2 ? '#3fbe6a' : 'g', TILE, TILE);
+    px(X, Y, (tx + ty) % 2 ? 'a' : 'g', TILE, TILE);
     for (let k = 0; k < 5; k++) px(X + ((r() * 15) | 0), Y + ((r() * 15) | 0), r() < 0.5 ? 'e' : 'l', 1, r() < 0.4 ? 2 : 1);
     if (r() < 0.07) { const fx = X + 3 + ((r() * 9) | 0), fy = Y + 3 + ((r() * 9) | 0); px(fx, fy, r() < 0.5 ? 'w' : 'y'); px(fx, fy + 1, 'e'); }
     // sandy shore
