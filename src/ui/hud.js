@@ -36,14 +36,12 @@ export class Hud {
           <div class="res" title="ประชากร"><img src="${iconURL('pop')}" alt="ประชากร"><b data-pop>0</b></div>
         </div>
         <div class="clock">
-          <div class="dayrow"><img class="ic" data-dayicon alt=""><span data-day>วันที่ 1</span><span class="fed" data-fed></span></div>
+          <div class="dayrow"><img class="ic" data-dayicon alt=""><span data-day>วันที่ 1</span></div>
           <div class="sunbar"><i data-sun></i></div>
           <button class="raid" data-raid title="ศัตรูคืนนี้"></button>
         </div>
         <div class="btns">
-          <button class="btn sq" data-home aria-label="กลับไปที่ศาลากลาง">${icon('home')}</button>
           <button class="btn sq" data-speed aria-label="ความเร็ว"><img class="ic" data-speedicon src="${iconURL('play')}" alt=""><span data-speedtxt>1x</span></button>
-          <button class="btn sq${document.fullscreenEnabled ? '' : ' hidden'}" data-fs aria-label="เต็มจอ" aria-pressed="false">${icon('full')}</button>
           <button class="btn sq" data-menu aria-label="เมนู">${icon('menu')}</button>
         </div>
       </div>
@@ -94,6 +92,7 @@ export class Hud {
     on('[data-fs]', () => { this.sfx('click'); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else goFullscreen(); });
     document.addEventListener('fullscreenchange', () => {
       const fs = !!document.fullscreenElement, b = $('[data-fs]', this.root);
+      if (!b) return;
       b.classList.toggle('on', fs); b.setAttribute('aria-pressed', String(fs)); b.setAttribute('aria-label', fs ? 'ออกจากเต็มจอ' : 'เต็มจอ');
     });
     on('[data-speed]', () => { const s = this.scene; if (!s) return; s.speed = s.speed >= 3 ? 1 : s.speed + 1; this.sfx('click'); this.clock(true); });
@@ -204,8 +203,8 @@ export class Hud {
     if (force || this._di !== di) { this._di = di; this.root.querySelector('[data-dayicon]').src = iconURL(di); }
     this.el.sun.style.width = `${Math.min(100, (w.clock / (DAY_LEN + NIGHT_LEN)) * 100).toFixed(1)}%`;
     this.el.sun.parentElement.classList.toggle('isnight', w.night);
-    if (force || this._fed !== w.fed) { this._fed = w.fed; this.el.fed.innerHTML = w.fed ? `${icon('fed')}อิ่ม` : `${icon('hungry')}หิว`; }
-    this.el.fed.title = w.fed ? 'ชาวบ้านกินอิ่ม ทำงานเร็วขึ้นวันนี้' : 'อาหารไม่พอมื้อเช้า ทำงานช้ากว่าปกติ';
+    // the raid warning only shows once night is close, so the day screen stays simple
+    this.el.raid.classList.toggle('hidden', !(w.night || w.clock >= DAY_LEN - 40));
     const sp = s.paused ? 'pause' : `play${s.speed}`;
     if (force || this._sp !== sp) {
       this._sp = sp;
@@ -359,6 +358,7 @@ export class Hud {
       if (m === 'back') this.pop();
       if (m === 'settings') this.push('settings', this.settingsHtml());
       if (m === 'fs') { goFullscreen(); this.stack = []; this.render(); }
+      if (m === 'home') { this.stack = []; this.render(); this.scene?.focusHall(); if (this.scene?.w.player) { const h = this.scene.w.buildings.find((b) => b.type === 'hall'); this.scene.w.player.x = h.x + 1.5; this.scene.w.player.y = h.y + 2.5; } }
       if (m === 'new') {
         if (b.dataset.sure || this.scene.w.over) this.game.newGame();
         else { b.dataset.sure = '1'; b.textContent = 'แน่ใจ? แตะอีกครั้ง'; }
@@ -383,7 +383,7 @@ export class Hud {
       <div class="help">
         <p>${icon('axe')}ชาวบ้านตัดไม้ ขุดหิน เก็บผลไม้เองอัตโนมัติ มื้อเช้าอิ่มแล้วทำงานเร็วขึ้น</p>
         <p>${icon('house')}<b>บ้าน</b>เพิ่มประชากร <b>ฟาร์ม</b>ผลิตอาหาร</p>
-        <p>${icon('moon')}กลางคืนมอนสเตอร์บุก ดูได้ที่ป้าย "คืนนี้จะมา" ใต้นาฬิกา (แตะเพื่อดูทิศ)</p>
+        <p>${icon('moon')}ใกล้ค่ำจะมีป้าย "คืนนี้จะมา" ใต้วันที่ บอกจำนวนศัตรูและทิศ (แตะเพื่อดูทิศ)</p>
         <p>${icon('tower')}<b>หอธนู</b>ยิงตัวที่ใกล้อาคารที่สุดก่อน <b>กำแพง</b>กันสไลม์และก็อบลิน แต่<b>ค้างคาวบินข้ามได้</b></p>
         <p>${icon('hand')}จอยซ้ายล่างเดิน ปุ่มขวาล่างตัดไม้ ขุดหิน เก็บผล (คีย์บอร์ด: WASD กับ Space)</p>
         <p>${icon('person')}แตะชาวบ้านเพื่อสั่งทีละคน หรือกดปุ่ม "สั่งงาน" เพื่อสั่งทุกคน</p>
@@ -391,6 +391,7 @@ export class Hud {
       <div class="row">
         <button class="btn big" data-m="resume">เล่นต่อ</button>
         <button class="btn big" data-m="settings">ตั้งค่า</button>
+        <button class="btn big" data-m="home">${icon('home')}กลับหมู่บ้าน</button>
         <button class="btn big" data-m="fs">${icon('full')}เต็มจอ</button>
         <button class="btn big danger" data-m="new">เริ่มใหม่</button>
       </div>`);

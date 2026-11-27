@@ -242,10 +242,14 @@ async function freeTileScreen(page, type) {
   await layoutCheck(page, 'joystick and action');
 
   // home and raid buttons move the camera
-  await W(page, () => game.scene.getScene('play').cameras.main.setScroll(0, 0));
-  await page.locator('[data-home]').tap();
+  ok('day HUD is simple: no raid chip before evening, two top buttons', await W(page, () => document.querySelector('[data-raid]').classList.contains('hidden') && [...document.querySelectorAll('.btns button')].filter((b) => b.offsetParent).length === 2));
+  await page.locator('[data-menu]').tap();
+  await page.locator('[data-m=home]').tap();
   await wait(page, 1200);
-  ok('home button pans back to the hall', await W(page, () => { const s = game.scene.getScene('play'), h = s.w.buildings.find((b) => b.type === 'hall'); return s.cameras.main.worldView.contains((h.x + 1) * 16, (h.y + 1) * 16); }));
+  ok('menu "back to village" brings the player and camera home', await W(page, () => { const s = game.scene.getScene('play'), h = s.w.buildings.find((b) => b.type === 'hall'); return s.cameras.main.worldView.contains((h.x + 1) * 16, (h.y + 1) * 16) && Math.hypot(s.w.player.x - h.x - 1.5, s.w.player.y - h.y - 2.5) < 0.1; }));
+  await W(page, () => { game.scene.getScene('play').w.clock = 65; });
+  await wait(page, 400);
+  ok('raid chip appears as evening nears', await W(page, () => !document.querySelector('[data-raid]').classList.contains('hidden')));
   const before2 = await W(page, () => game.scene.getScene('play').cameras.main.scrollX + ',' + game.scene.getScene('play').cameras.main.scrollY);
   await page.locator('[data-raid]').tap();
   await wait(page, 1200);
