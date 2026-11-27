@@ -4,7 +4,7 @@
 
 export const COZY = {
   // grass
-  grassL: '#78c446', grassM: '#6cbd40', grassD: '#62b33c', clump: '#4a9c38', clumpRim: '#86cc4f', blade: '#4a9a36', bladeHi: '#a6dc6a',
+  grassL: '#6cc23e', grassM: '#62b938', grassD: '#58ae34', clump: '#3f9632', clumpD: '#2f7a2b', clumpRim: '#7fcc48', blade: '#4a9e2e', bladeHi: '#8fd65a',
   // leaves
   leafHi: '#a8dc5e', leafL: '#7cc44a', leafM: '#55a43a', leafD: '#357f35', leafS: '#225a2e', leafOut: '#183f25',
   // blossom
@@ -12,7 +12,7 @@ export const COZY = {
   // wood and bark
   bark: '#7a4a2a', barkD: '#55321d', barkHi: '#9c6438', woodL: '#c98b4e', woodM: '#a0663a', woodD: '#6b3d23', woodOut: '#3a2012',
   // sand path
-  sandL: '#f2d48a', sandM: '#e3b25a', sandD: '#c98f43', pebL: '#fbe7b5', pebD: '#b98a52', step: '#d8cfb8', stepD: '#9a907c',
+  sandL: '#f7cf6a', sandM: '#efb544', sandD: '#c9842e', sandEdge: '#a8642a', pebL: '#fbe7b5', pebD: '#b98a52', step: '#d8cfb8', stepD: '#9a907c',
   // cottage
   wallL: '#f7e3a3', wallM: '#ecd08a', wallD: '#c79c52', found: '#9a8f7e', foundD: '#6f6658',
   glass: '#8fc7e8', glassHi: '#d8f0ff', frame: '#f4f4f4', shutter: '#3b7a3e', shutterD: '#28562f',

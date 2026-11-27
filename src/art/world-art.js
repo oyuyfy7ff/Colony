@@ -221,8 +221,9 @@ export function paintGround2(world, plaza) {
     // grass: zone value + fine noise, dithered on a checkerboard at the band edges
     // warm grass in soft zones (ragged edges from the fine noise), with darker lush clumps
     const v = zone(x / 16, y / 16) * 0.93 + fine(x / 16, y / 16) * 0.07;
-    const cl = (px2, py2) => clump(px2 / 16, py2 / 16) * 0.8 + fine(px2 / 6, py2 / 6) * 0.2 > 0.71; // small soft clumps
-    if (cl(x, y)) put(x, y, cl(x, y - 1) && cl(x, y - 2) ? COZY.clump : COZY.clumpRim);
+    // lush patches: big rounded blobs, light rim on top, dark rim below (reads as raised tall grass)
+    const cl = (px2, py2) => clump(px2 / 20, py2 / 20) * 0.85 + fine(px2 / 8, py2 / 8) * 0.15 > 0.62;
+    if (cl(x, y)) put(x, y, !cl(x, y + 1) || !cl(x, y + 2) ? COZY.clumpD : !cl(x, y - 1) ? COZY.clumpRim : COZY.clump);
     else put(x, y, v < 0.36 ? COZY.grassD : v < 0.66 ? COZY.grassM : COZY.grassL);
   }
   ctx.putImageData(img, 0, 0);
@@ -239,18 +240,24 @@ export function paintGround2(world, plaza) {
       const edge = (dx, dy) => !isPlaza(tx + dx, ty + dy);
       px(X, Y, COZY.sandM, TILE, TILE);
       for (let k = 0; k < 8; k++) px(X + ((rnd() * 15) | 0), Y + ((rnd() * 15) | 0), rnd() < 0.5 ? COZY.sandL : COZY.sandD);
-      if (rnd() < 0.7) { const fx = X + 2 + ((rnd() * 8) | 0), fy = Y + 2 + ((rnd() * 8) | 0); px(fx, fy + 1, COZY.stepD, 6, 4); px(fx, fy, COZY.step, 6, 4); px(fx + 1, fy, COZY.pebL, 3, 1); }
-      const g = COZY.grassM;
-      if (edge(-1, 0)) for (let j = 0; j < TILE; j += 2) px(X, Y + j, g, 1 + ((rnd() * 3) | 0), 2);
-      if (edge(1, 0)) for (let j = 0; j < TILE; j += 2) { const w = 1 + ((rnd() * 3) | 0); px(X + TILE - w, Y + j, g, w, 2); }
-      if (edge(0, -1)) for (let i = 0; i < TILE; i += 2) px(X + i, Y, g, 2, 1 + ((rnd() * 3) | 0));
-      if (edge(0, 1)) for (let i = 0; i < TILE; i += 2) { const h = 1 + ((rnd() * 3) | 0); px(X + i, Y + TILE - h, g, 2, h); }
+      // rounded pebbles: light top, dark underside
+      for (let k = rnd() < 0.6 ? 2 : 1; k > 0; k--) { const fx = X + 2 + ((rnd() * 10) | 0), fy = Y + 2 + ((rnd() * 10) | 0), w = 2 + ((rnd() * 3) | 0); px(fx, fy + 2, COZY.pebD, w, 1); px(fx, fy, COZY.step, w, 2); px(fx + 1, fy - 1, COZY.pebL, w - 1, 1); }
+      // ragged grass bite on each open side, with a dark sand rim right inside it
+      const g = COZY.grassM, E = COZY.sandEdge;
+      if (edge(-1, 0)) for (let j = 0; j < TILE; j++) { const w = 1 + ((rnd() * 2.5) | 0); px(X, Y + j, g, w, 1); px(X + w, Y + j, E); }
+      if (edge(1, 0)) for (let j = 0; j < TILE; j++) { const w = 1 + ((rnd() * 2.5) | 0); px(X + TILE - w, Y + j, g, w, 1); px(X + TILE - w - 1, Y + j, E); }
+      if (edge(0, -1)) for (let i = 0; i < TILE; i++) { const h = 1 + ((rnd() * 2.5) | 0); px(X + i, Y, g, 1, h); px(X + i, Y + h, E); }
+      if (edge(0, 1)) for (let i = 0; i < TILE; i++) { const h = 1 + ((rnd() * 2.5) | 0); px(X + i, Y + TILE - h, g, 1, h); px(X + i, Y + TILE - h - 1, E); }
       continue;
     }
     // grass blades: darker strokes with a light tip, denser in lush zones
-    const lush = zone(tx + 0.5, ty + 0.5);
-    const blades = lush > 0.6 ? 3 : lush > 0.4 ? 2 : 1;
-    for (let k = 0; k < blades; k++) { const bx = X + ((rnd() * 14) | 0), by = Y + ((rnd() * 13) | 0); px(bx, by + 1, COZY.blade); px(bx + 2, by + 1, COZY.blade); px(bx + 1, by, lush > 0.6 ? COZY.bladeHi : COZY.blade); }
+    // dense little v-shaped grass marks all over; inside lush patches they are darker
+    for (let k = 0; k < 5; k++) {
+      const bx = X + ((rnd() * 14) | 0), by = Y + ((rnd() * 13) | 0), inP = clump(bx / 20, by / 20) > 0.66;
+      const c = inP ? COZY.clumpD : COZY.blade;
+      px(bx, by, c); px(bx + 2, by, c); px(bx + 1, by + 1, c);
+      if (!inP && rnd() < 0.3) px(bx + 1, by - 1, COZY.bladeHi);
+    }
     // tiny meadow flowers only in meadow zones (clearings stay plain)
     if (meadow(tx, ty) > 0.72 && rnd() < 0.35) for (let k = 0; k < 2; k++) px(X + 2 + ((rnd() * 12) | 0), Y + 2 + ((rnd() * 12) | 0), ['w', 'y', 'q'][(rnd() * 3) | 0]);
     // sandy shores
@@ -275,8 +282,11 @@ export function paintPathTile(ctx, tx, ty, level, nb, seed) {
   const l = inset('l'), r = inset('r'), t = inset('t'), b = inset('b');
   if (level === 2) {
     px(X + l, Y + t, COZY.sandM, TILE - l - r, TILE - t - b);
-    if (t) px(X + l, Y + t, COZY.sandL, TILE - l - r, 1);
-    if (b) px(X + l, Y + TILE - b - 1, COZY.sandD, TILE - l - r, 1);
+    // dark rim where the path meets grass, lighter sand just inside the top edge
+    if (l) px(X + l, Y + t, COZY.sandEdge, 1, TILE - t - b);
+    if (r) px(X + TILE - r - 1, Y + t, COZY.sandEdge, 1, TILE - t - b);
+    if (t) { px(X + l, Y + t, COZY.sandEdge, TILE - l - r, 1); px(X + l + (l ? 1 : 0), Y + t + 1, COZY.sandL, TILE - l - r - (l ? 1 : 0) - (r ? 1 : 0), 1); }
+    if (b) px(X + l, Y + TILE - b - 1, COZY.sandEdge, TILE - l - r, 1);
     for (let k = 0; k < 7; k++) { const a = X + l + ((rnd() * (TILE - l - r - 2)) | 0), c = Y + t + ((rnd() * (TILE - t - b - 2)) | 0); px(a, c, rnd() < 0.5 ? COZY.pebL : COZY.pebD, rnd() < 0.3 ? 2 : 1, 1); }
     return;
   }
