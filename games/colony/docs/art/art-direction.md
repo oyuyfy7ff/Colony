@@ -37,7 +37,7 @@ cottages, branching trees, joystick player).
 ```bash
 npm run dev -- --port 5173 &
 node tools/export-sprites.cjs out/sprites
-S=.claude/skills/create-game-assets/scripts
+S=../../.claude/skills/create-game-assets/scripts
 # buildings: alpha + at most 32 colours; solid shapes (digits, dust, firefly, ripples, crate) have no
 # transparent pixel by design; everything else: alpha + at most 24 colours
 python3 $S/asset_report.py out/sprites/<family>.png --require-alpha --max-colors 24 --json

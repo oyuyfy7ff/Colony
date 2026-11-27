@@ -1,5 +1,5 @@
 // Writes tools/waves.json for the tower-defense skill's td_curve_check.py from the real wave plan.
-// Run: node tools/curve-spec.mjs && python3 .claude/skills/tower-defense/scripts/td_curve_check.py tools/waves.json
+// Run: node tools/curve-spec.mjs && python3 ../../.claude/skills/tower-defense/scripts/td_curve_check.py tools/waves.json
 //
 // Economy model: "gold" = stone, the tower bottleneck. The bot's stone income is lumpy (villagers
 // gather whatever is lowest) and stops when it dies, so the spec uses a steady model, printed next
