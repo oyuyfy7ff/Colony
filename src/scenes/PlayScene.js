@@ -77,15 +77,15 @@ export default class PlayScene extends Phaser.Scene {
     cam.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
     cam.setRoundPixels(true);
     cam.centerOn((h.x + 1) * TILE, (h.y + 1) * TILE);
-    this.setZoom(this.sys.game.device.input.touch ? 1.75 : 1.25);
+    this.setZoom(this.baseZoom());
 
     this.fx = this.add.graphics().setDepth(5000);
     this.ghost = this.add.image(0, 0, A, 'house').setOrigin(0, 1).setAlpha(0.6).setVisible(false).setDepth(6000);
     this.selBox = this.add.graphics().setDepth(5001);
     this.light = this.add.rectangle(0, 0, 10, 10, 0x0c1230).setOrigin(0).setScrollFactor(0).setDepth(7000).setAlpha(0);
     this.layoutLight();
-    this.scale.on('resize', this.layoutLight, this);
-    this.events.once('shutdown', () => this.scale.off('resize', this.layoutLight, this));
+    this.scale.on('resize', this.onResize, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this.onResize, this));
 
     this.setupDecor();
     this.setupCritters();
@@ -102,14 +102,22 @@ export default class PlayScene extends Phaser.Scene {
     this.syncAll();
   }
 
+  onResize() {
+    this.cameras.main.setSize(this.scale.width, this.scale.height);
+    this.setZoom(this.baseZoom());
+    this.layoutLight();
+  }
   layoutLight() {
     const cam = this.cameras.main;
     this.light.setPosition(-cam.width, -cam.height).setSize(cam.width * 3, cam.height * 3);
   }
+  // Camera zoom is a whole number (1 or 2) so every art pixel stays the same size.
+  baseZoom() { return 1; } // the canvas is already sized so 1 shows ~200 art pixels tall
   setZoom(z) {
     const cam = this.cameras.main;
-    const minZ = Math.max(cam.width / (MAP_W * TILE), cam.height / (MAP_H * TILE), 1);
-    cam.setZoom(Phaser.Math.Clamp(z, minZ, 3));
+    const minZ = Math.ceil(Math.max(cam.width / (MAP_W * TILE), cam.height / (MAP_H * TILE), 1));
+    const maxZ = 2;
+    cam.setZoom(Phaser.Math.Clamp(Math.round(z), minZ, maxZ));
   }
   rng(seed) { let s = seed | 0; return () => ((s = (Math.imul(s, 1664525) + 1013904223) | 0) >>> 0) / 4294967296; }
   isWater(x, y) { return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && this.w.terrain[y * MAP_W + x] === T_WATER; }
@@ -361,7 +369,7 @@ export default class PlayScene extends Phaser.Scene {
       if (drag && drag.moved && (performance.now() - drag.lt > 80 || this.buildType === 'road')) this.fling.vx = this.fling.vy = 0;
       drag = null;
     });
-    this.input.on('wheel', (_p, _o, _dx, dy) => this.setZoom(cam.zoom * (dy > 0 ? 0.9 : 1.1)));
+    this.input.on('wheel', (_p, _o, _dx, dy) => this.setZoom(cam.zoom + (dy > 0 ? -1 : 1)));
   }
   tileAt(p) {
     const wp = this.cameras.main.getWorldPoint(p.x, p.y);

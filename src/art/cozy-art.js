@@ -91,7 +91,7 @@ function tree(kind, sway, size = 'big') {
     for (let j = -r - 1; j <= r + 1; j++) for (let i = -r - 1; i <= r + 1; i++) {
       const d = Math.hypot(i, j * 1.1), edge = r + (hash(cx + i, cy + j, n) - 0.5) * 2.2;
       if (d > edge) continue;
-      const light = (-i - j) / (r * 1.6) + (hash(i, j, n + 7) - 0.5) * 0.9; // upper left is lit
+      const light = (-i - j) / (r * 1.6) + (hash(i, j, n + 7) - 0.5) * 0.45; // upper left is lit, a little leaf texture
       const k = light > 0.75 ? 4 : light > 0.3 ? 3 : light > -0.2 ? 2 : light > -0.6 ? 1 : 0;
       leaf(cx + i, cy + j, P[k]);
     }

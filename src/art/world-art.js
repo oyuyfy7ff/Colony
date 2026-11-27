@@ -220,7 +220,7 @@ export function paintGround2(world, plaza) {
     }
     // grass: zone value + fine noise, dithered on a checkerboard at the band edges
     // warm grass in soft zones (ragged edges from the fine noise), with darker lush clumps
-    const v = zone(x / 16, y / 16) * 0.82 + fine(x / 16, y / 16) * 0.18;
+    const v = zone(x / 16, y / 16) * 0.93 + fine(x / 16, y / 16) * 0.07;
     const cl = (px2, py2) => clump(px2 / 16, py2 / 16) * 0.8 + fine(px2 / 6, py2 / 6) * 0.2 > 0.71; // small soft clumps
     if (cl(x, y)) put(x, y, cl(x, y - 1) && cl(x, y - 2) ? COZY.clump : COZY.clumpRim);
     else put(x, y, v < 0.36 ? COZY.grassD : v < 0.66 ? COZY.grassM : COZY.grassL);
@@ -249,10 +249,10 @@ export function paintGround2(world, plaza) {
     }
     // grass blades: darker strokes with a light tip, denser in lush zones
     const lush = zone(tx + 0.5, ty + 0.5);
-    const blades = lush > 0.6 ? 7 : lush > 0.4 ? 4 : 2;
+    const blades = lush > 0.6 ? 3 : lush > 0.4 ? 2 : 1;
     for (let k = 0; k < blades; k++) { const bx = X + ((rnd() * 14) | 0), by = Y + ((rnd() * 13) | 0); px(bx, by + 1, COZY.blade); px(bx + 2, by + 1, COZY.blade); px(bx + 1, by, lush > 0.6 ? COZY.bladeHi : COZY.blade); }
     // tiny meadow flowers only in meadow zones (clearings stay plain)
-    if (meadow(tx, ty) > 0.68 && rnd() < 0.5) for (let k = 0; k < 3; k++) px(X + 2 + ((rnd() * 12) | 0), Y + 2 + ((rnd() * 12) | 0), ['w', 'y', 'q'][(rnd() * 3) | 0]);
+    if (meadow(tx, ty) > 0.72 && rnd() < 0.35) for (let k = 0; k < 2; k++) px(X + 2 + ((rnd() * 12) | 0), Y + 2 + ((rnd() * 12) | 0), ['w', 'y', 'q'][(rnd() * 3) | 0]);
     // sandy shores
     if (water(tx, ty + 1)) { px(X, Y + 12, COZY.sandL, TILE, 4); px(X, Y + 12, COZY.sandM, TILE, 1); }
     if (water(tx - 1, ty)) px(X, Y, COZY.sandL, 3, TILE);
