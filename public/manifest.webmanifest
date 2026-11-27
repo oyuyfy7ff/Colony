@@ -1,0 +1,10 @@
+{
+  "name": "Pixel Colony",
+  "short_name": "Colony",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1a1c2c",
+  "theme_color": "#1a1c2c",
+  "start_url": "./",
+  "icons": []
+}
