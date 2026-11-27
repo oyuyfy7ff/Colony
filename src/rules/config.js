@@ -21,7 +21,7 @@ export const VILLAGER_SPEED = 2.4; // tiles / s
 export const VILLAGER_HP = 30;
 
 export const BUILDINGS = {
-  hall:  { name: 'ศาลากลาง', w: 2, h: 2, hp: 400, cost: {}, build: 0, pop: 3, range: 4.5, dmg: 6, rate: 1.1 },
+  hall:  { name: 'ศาลากลาง', w: 2, h: 2, hp: 480, cost: {}, build: 0, pop: 3, range: 4.5, dmg: 6, rate: 1.1 },
   house: { name: 'บ้าน', w: 2, h: 2, hp: 120, cost: { wood: 20 }, build: 5, pop: 2 },
   farm:  { name: 'ฟาร์ม', w: 2, h: 2, hp: 70, cost: { wood: 15 }, build: 4, foodEvery: 4 },
   tower: { name: 'หอธนู', w: 1, h: 1, hp: 150, cost: { wood: 15, stone: 15 }, build: 5, range: 5.5, dmg: 8, rate: 0.9 },

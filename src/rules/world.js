@@ -38,7 +38,7 @@ function valueNoise(seed, scale) {
 // ---------- creation ----------
 export function createWorld(seed = (Math.random() * 1e9) | 0) {
   const w = {
-    v: 4, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
+    v: 5, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
     stock: { wood: 30, stone: 10, food: 20 }, focus: 'auto',
     terrain: new Array(MAP_W * MAP_H).fill(T_GRASS), nodes: {},
     buildings: [], villagers: [], enemies: [], shots: [], spawnQueue: [],
@@ -77,6 +77,7 @@ export function createWorld(seed = (Math.random() * 1e9) | 0) {
   }
   for (const k in w.nodes) if (w.nodes[k].t === 'tree') w.nodes[k].style = treeStyle(w);
   addBuilding(w, 'hall', cx - 1, cy - 1, true);
+  w.player = { x: cx + 0.5, y: cy + 2.5, face: 1, cd: 0, moving: false };
   for (let k = 0; k < 3; k++) spawnVillager(w);
   rebuild(w);
   previewNight(w);
@@ -135,7 +136,7 @@ function spawnVillager(w) {
   const used = new Set(w.villagers.map((o) => o.name));
   const free = NAMES.filter((n) => !used.has(n));
   const name = free.length ? free[randInt(w, free.length)] : NAMES[randInt(w, NAMES.length)] + ' ' + (w.villagers.length + 1);
-  const v = { id: w.nextId++, name, x: hx + 0.5, y: hy + 0.5, hp: VILLAGER_HP, path: [], job: null, carry: null, work: 0, wait: rand(w), hidden: false, look: randInt(w, 24), face: 1, home: 0, emote: null, sit: false, pause: 0 };
+  const v = { id: w.nextId++, order: 'auto', name, x: hx + 0.5, y: hy + 0.5, hp: VILLAGER_HP, path: [], job: null, carry: null, work: 0, wait: rand(w), hidden: false, look: randInt(w, 24), face: 1, home: 0, emote: null, sit: false, pause: 0 };
   w.villagers.push(v);
   assignHomes(w);
   return v;
@@ -244,6 +245,7 @@ export function tick(w, dt) {
   if (w.night && w.clock >= CYCLE) startDay(w);
 
   economy(w, dt);
+  if (w.player && w.player.cd > 0) w.player.cd -= dt;
   for (const v of w.villagers) stepVillager(w, v, dt);
   spawnEnemies(w, dt);
   for (const e of w.enemies) stepEnemy(w, e, dt);
@@ -357,9 +359,10 @@ function resetJob(v) {
   v.job = null; v.path = []; v.work = 0; // carried goods stay until deposited
 }
 
-function pickResource(w) {
+function pickResource(w, v) {
+  if (v && ['wood', 'stone', 'food'].includes(v.order)) return [v.order]; // a direct order wins
   const want = { wood: 1, stone: 0.7, food: 0.9 };
-  if (w.focus !== 'auto') want[w.focus] *= 4;
+  if (w.focus && w.focus !== 'auto') want[w.focus] *= 4;
   const types = Object.keys(want).sort((a, b) => w.stock[a] / want[a] - w.stock[b] / want[b]);
   return types;
 }
@@ -382,12 +385,86 @@ const isLunch = (w) => !w.night && w.clock >= LUNCH_START && w.clock < LUNCH_END
 const ACTIVITY = { gather: { wood: 'ตัดไม้', stone: 'ขุดหิน', food: 'เก็บผลไม้' }, build: 'ก่อสร้าง', deposit: 'ขนของเข้าคลัง', home: 'กลับบ้าน', rest: 'พักกินข้าวที่ลาน', stroll: 'เดินเล่น' };
 export function activity(w, v) {
   if (v.hidden) return w.night ? 'นอนหลับอยู่ในบ้าน' : 'อยู่ในบ้าน';
+  if (v.order === 'follow') return 'เดินตามคุณ';
   if (!v.job) return 'กำลังคิดว่าจะทำอะไรดี';
   if (v.job.kind === 'gather') return ACTIVITY.gather[v.job.res];
   if (v.job.kind === 'rest' && v.sit) return 'นั่งคุยกับเพื่อนที่ลาน';
   return ACTIVITY[v.job.kind] || '';
 }
 // Tapping a villager: they stop, turn to the camera and wave.
+// ---------- orders: one villager or everyone ----------
+export const ORDERS = ['auto', 'wood', 'stone', 'food', 'follow'];
+export function setOrder(w, ids, order) {
+  if (!ORDERS.includes(order)) return 0;
+  let n = 0;
+  for (const v of w.villagers) {
+    if (ids !== 'all' && !ids.includes(v.id)) continue;
+    v.order = order; n++;
+    if (!v.hidden && v.job && v.job.kind !== 'deposit' && v.job.kind !== 'home') resetJob(v); // carried goods are kept
+    if (!v.hidden) emote(w, v, 'note', 1.2);
+  }
+  return n;
+}
+
+// ---------- the player: walk with the joystick, work what is in front of you ----------
+export const PLAYER_SPEED = 3.4; // tiles per second
+const solidAt = (w, x, y) => !walkable(w, Math.floor(x), Math.floor(y));
+export function movePlayer(w, dx, dy, dt) {
+  const P = w.player; if (!P || w.over) return;
+  const len = Math.hypot(dx, dy);
+  P.moving = len > 0.05;
+  if (!P.moving) return;
+  const k = Math.min(1, len), sp = PLAYER_SPEED * tileSpeed(w, P.x | 0, P.y | 0) * k * dt;
+  const ux = (dx / len) * sp, uy = (dy / len) * sp, r = 0.28;
+  const blocked = (x, y) => solidAt(w, x - r, y - r) || solidAt(w, x + r, y - r) || solidAt(w, x - r, y + r) || solidAt(w, x + r, y + r);
+  if (!blocked(P.x + ux, P.y)) P.x += ux; // slide along walls: x and y separately
+  if (!blocked(P.x, P.y + uy)) P.y += uy;
+  if (Math.abs(dx) > 0.1) P.face = dx < 0 ? -1 : 1;
+  const i = idx(P.x | 0, P.y | 0); if (w.wear[i] < 255) w.wear[i] = Math.min(255, w.wear[i] + 0.2);
+}
+// What the action button would do right now (for the button label): nearest workable thing.
+export function playerTarget(w) {
+  const P = w.player; if (!P) return null;
+  let best = null, bd = 1.6;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    const x = (P.x | 0) + dx, y = (P.y | 0) + dy; if (!inMap(x, y)) continue;
+    const i = idx(x, y), n = w.nodes[i], d = Math.hypot(x + 0.5 - P.x, y + 0.5 - P.y);
+    if (n && n.amt > 0 && (n.grow ?? 2) >= 2 && d < bd) { bd = d; best = { kind: 'node', node: i, res: NODES[n.t].gives, t: n.t }; }
+  }
+  if (best) return best;
+  for (const b of w.buildings) {
+    const def = BUILDINGS[b.type];
+    if (b.done && b.hp >= def.hp) continue;
+    const d = Math.hypot(Math.max(b.x - P.x, 0, P.x - (b.x + def.w)), Math.max(b.y - P.y, 0, P.y - (b.y + def.h)));
+    if (d < 1.2) return { kind: 'build', b: b.id };
+  }
+  return null;
+}
+export function playerAct(w) {
+  const P = w.player; if (!P || w.over || P.cd > 0) return null;
+  const t = playerTarget(w); if (!t) return null;
+  P.cd = 0.28;
+  if (t.kind === 'node') {
+    const n = w.nodes[t.node];
+    P.face = (t.node % MAP_W) + 0.5 < P.x ? -1 : 1;
+    n.amt--; w.stock[t.res]++;
+    w.events.push({ type: 'hit', node: t.node, t: n.t, player: true });
+    w.events.push({ type: 'gain', x: P.x, y: P.y - 1, res: t.res, amt: 1 });
+    if (n.amt <= 0) {
+      if (n.t === 'bush') n.regrow = NODES.bush.regrow;
+      else { delete w.nodes[t.node]; w._flowDirty = true; w.events.push({ type: 'depleted', node: t.node, t: n.t }); }
+    }
+    return t;
+  }
+  const b = w.buildings.find((x) => x.id === t.b), def = BUILDINGS[b.type];
+  if (!b.done) {
+    b.progress += 0.6; b.hp = Math.min(def.hp, b.hp + (def.hp * 0.75 * 0.6) / def.build);
+    if (b.progress >= def.build) { b.done = true; b.hp = def.hp; if (beds(b)) assignHomes(w); w.events.push({ type: 'built', x: b.x + def.w / 2, y: b.y, btype: b.type }); }
+  } else b.hp = Math.min(def.hp, b.hp + 15);
+  w.events.push({ type: 'hammer', x: b.x + def.w / 2, y: b.y + def.h });
+  return t;
+}
+
 export function greet(w, id) {
   const v = w.villagers.find((x) => x.id === id);
   if (!v || v.hidden) return null;
@@ -419,7 +496,7 @@ function stepVillager(w, v, dt) {
       v.job = { kind: 'deposit' };
       return;
     }
-    if (isLunch(w)) {
+    if (isLunch(w) && v.order !== 'follow') {
       const taken = new Set(w.villagers.filter((o) => o !== v && o.job && o.job.kind === 'rest').map((o) => o.job.seat));
       const seats = plazaSeats(w).filter((p) => !taken.has(p.x + ',' + p.y));
       const pick = seats.length ? seats[randInt(w, seats.length)] : null;
@@ -427,8 +504,19 @@ function stepVillager(w, v, dt) {
       const p = goTo(w, v, (x, y) => (pick ? x === goal.x && y === goal.y : Math.hypot(x - goal.x, y - goal.y) < 2.5));
       if (p) { v.path = p; v.job = { kind: 'rest', seat: pick ? pick.x + ',' + pick.y : '' }; return; }
     }
-    // build or repair first
     const tx = v.x | 0, ty = v.y | 0;
+    // follow the player: walk to just beside them, a few steps at a time so the route stays fresh
+    if (v.order === 'follow' && w.player) {
+      const P = w.player, d = Math.hypot(P.x - v.x, P.y - v.y);
+      if (d > 1.8) {
+        const p = goTo(w, v, (x, y) => Math.hypot(x + 0.5 - P.x, y + 0.5 - P.y) < 1.6);
+        if (p) { v.path = p.slice(0, 6); v.job = { kind: 'follow' }; }
+      } else v.face = P.x < v.x ? -1 : 1;
+      v.wait = 0.25;
+      return;
+    }
+    // build or repair first (villagers given a resource order go straight to it)
+    if (v.order === 'auto') {
     const busy = (id) => w.villagers.filter((o) => o !== v && o.job && o.job.b === id).length;
     const site = w.buildings
       .filter((b) => (!b.done || b.hp < BUILDINGS[b.type].hp) && busy(b.id) < 2)
@@ -438,9 +526,10 @@ function stepVillager(w, v, dt) {
       const p = goTo(w, v, (x, y) => nextTo(x, y, site.x, site.y, def.w, def.h));
       if (p) { v.path = p; v.job = { kind: 'build', b: site.id }; return; }
     }
+    }
     // gather
     const claimed = new Set(w.villagers.filter((o) => o !== v && o.job && o.job.node !== undefined).map((o) => o.job.node));
-    for (const res of pickResource(w)) {
+    for (const res of pickResource(w, v)) {
       let target = -1;
       const p = bfs(tx, ty, (x, y) => walkable(w, x, y), (x, y) => {
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -463,6 +552,7 @@ function stepVillager(w, v, dt) {
 
   // arrived: do the job
   const job = v.job;
+  if (job.kind === 'follow') { v.job = null; v.wait = 0.1; return; }
   if (job.kind === 'stroll') {
     v.job = null;
     // meet someone close by: both stop, face each other and chat for a moment

@@ -118,3 +118,18 @@ test('enemies only spawn where they can reach the village, even when their side 
   assert.equal(fled, 0, 'no enemy gave up');
   assert.ok(w.stats.kills + w.enemies.length === 8, 'all 8 spawned and are fighting or dead');
 });
+
+test('weighted pathfinding finds a route whenever plain BFS does (diagonal costs do not get lost)', async () => {
+  const { dijkstra, bfs } = await import('../src/rules/path.js');
+  const { walkable } = await import('../src/rules/world.js');
+  const w = createWorld(7);
+  let n = 0;
+  for (let k = 0; k < 60; k++) {
+    const sx = (k * 7) % 48, sy = (k * 11) % 30, gx = (k * 13 + 5) % 48, gy = (k * 17 + 3) % 30;
+    if (!walkable(w, sx, sy)) continue;
+    const goal = (x, y) => Math.hypot(x + 0.5 - gx, y + 0.5 - gy) < 1.6;
+    const a = bfs(sx, sy, (x, y) => walkable(w, x, y), goal), b = dijkstra(sx, sy, (x, y) => walkable(w, x, y), () => 1, goal);
+    assert.equal(!!b, !!a, `from ${sx},${sy}`); n++;
+  }
+  assert.ok(n > 20);
+});

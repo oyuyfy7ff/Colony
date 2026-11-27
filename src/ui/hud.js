@@ -8,6 +8,8 @@ import { GameAudio } from './audio.js';
 import { loadSettings, saveSettings } from './settings.js';
 
 const RES_NAME = { wood: 'ไม้', stone: 'หิน', food: 'อาหาร' };
+const ORDER_LIST = [['auto', 'ทำเอง', 'auto'], ['wood', 'ตัดไม้', 'wood'], ['stone', 'ขุดหิน', 'stone'], ['food', 'หาอาหาร', 'food'], ['follow', 'ตามฉัน', 'person']];
+const ORDER_BTNS = (who) => ORDER_LIST.map(([o, label, ic]) => `<button class="seg ord" data-order="${o}" data-who="${who}"><img src="${iconURL(ic, 3)}" alt="">${label}</button>`).join('');
 const SIDE = ['ตะวันตก', 'ตะวันออก', 'เหนือ', 'ใต้'];
 const SIDE_ARROW = ['arrowW', 'arrowE', 'arrowN', 'arrowS'];
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -49,23 +51,26 @@ export class Hud {
       <div class="info hidden" data-info>
         <img class="portrait hidden" data-info-pic alt="">
         <div class="infotext"><b data-info-name></b><span data-info-hp></span></div>
+        <div class="orders one hidden" data-vorders>${ORDER_BTNS('one')}</div>
         <button class="btn danger" data-demolish>รื้อ (คืนครึ่งหนึ่ง)</button>
       </div>
       <div class="bottom">
-        <div class="focus" role="group" aria-label="งานหลักของชาวบ้าน">
-          <div class="focusopts hidden" data-focusopts>
-            <div class="ptitle">งานหลัก</div>
-            ${[['auto', 'อัตโนมัติ', 'auto'], ['wood', 'ไม้', 'wood'], ['stone', 'หิน', 'stone'], ['food', 'อาหาร', 'food']].map(([f, label, ic]) => `<button class="seg" data-focus="${f}"><img src="${iconURL(ic, 3)}" alt="">${label}</button>`).join('')}
-          </div>
-          <button class="seg cur" data-focustoggle aria-expanded="false"><img data-focusicon alt=""><span><small>งานหลัก</small><b data-focuslabel></b></span></button>
-        </div>
+        <div class="joy" data-joy aria-label="จอยสติ๊กเดิน"><div class="knob" data-knob></div></div>
         <div class="buildwrap">
           <div class="buildpanel hidden" data-buildpanel role="menu" aria-label="สิ่งก่อสร้าง">
             <div class="ptitle">สร้าง</div>
             <div class="cards">${BUILD_ORDER.map((t) => card(t, BUILDINGS[t])).join('')}${card('road', ROAD_INFO)}</div>
           </div>
           <div class="modechip hidden" data-modechip><img data-modeicon alt=""><span data-modetxt></span><button class="btn sm danger" data-cancel>${icon('close')}ยกเลิก</button></div>
-          <button class="btn buildbtn" data-buildmenu aria-expanded="false">${icon('hammer', 'ic big')}<span>สร้าง</span></button>
+          <div class="cmdpanel hidden" data-cmdpanel role="menu" aria-label="สั่งชาวบ้านทุกคน">
+            <div class="ptitle">สั่งชาวบ้านทุกคน</div>
+            <div class="orders">${ORDER_BTNS('all')}</div>
+          </div>
+          <div class="actrow">
+            <button class="btn sidebtn" data-cmdmenu aria-expanded="false">${icon('person', 'ic big')}<span>สั่งงาน</span></button>
+            <button class="btn sidebtn buildbtn" data-buildmenu aria-expanded="false">${icon('hammer', 'ic big')}<span>สร้าง</span></button>
+            <button class="actbtn" data-act aria-label="ทำงาน"><img data-acticon alt=""><span data-acttxt>ทำงาน</span></button>
+          </div>
         </div>
       </div>
       <div class="modal hidden" data-modal role="dialog" aria-modal="true"></div>
@@ -76,7 +81,7 @@ export class Hud {
       pop: $('[data-pop]', root), day: $('[data-day]', root), sun: $('[data-sun]', root), fed: $('[data-fed]', root),
       raid: $('[data-raid]', root), speed: $('[data-speed]', root), toasts: $('[data-toasts]', root),
       info: $('[data-info]', root), modal: $('[data-modal]', root), cancel: $('[data-cancel]', root),
-      panel: $('[data-buildpanel]', root), menuBtn: $('[data-buildmenu]', root), chip: $('[data-modechip]', root),
+      panel: $('[data-buildpanel]', root), cmd: $('[data-cmdpanel]', root), menuBtn: $('[data-buildmenu]', root), chip: $('[data-modechip]', root),
     };
     this.bindings();
     document.addEventListener('keydown', (e) => {
@@ -105,12 +110,45 @@ export class Hud {
       this.refresh();
     });
     on('[data-cancel]', () => { this.scene.setBuild(null); this.refresh(); });
-    on('[data-focustoggle]', () => { this.setFocusOpen(this.root.querySelector('[data-focusopts]').classList.contains('hidden')); this.sfx('click'); });
-    on('[data-focus]', (b) => { this.scene.w.focus = b.dataset.focus; this.sfx('click'); this.setFocusOpen(false); this.refresh(); });
+    on('[data-cmdmenu]', () => { const open = this.el.cmd.classList.contains('hidden'); this.setPanel(false); this.setCmd(open); this.sfx('click'); });
+    on('[data-order]', (b) => {
+      const s = this.scene, o = b.dataset.order;
+      const n = s.giveOrder(b.dataset.who === 'all' ? 'all' : [s.selVillager], o);
+      const label = ORDER_LIST.find((x) => x[0] === o)[1];
+      this.toast(b.dataset.who === 'all' ? `สั่งทุกคน (${n} คน): ${label}` : `สั่งแล้ว: ${label}`, 'good');
+      this.sfx('place');
+      if (b.dataset.who === 'all') this.setCmd(false);
+      this.refresh();
+    });
+    // joystick: drag inside the pad; the knob follows, the vector is read by the scene each frame
+    this.joy = { x: 0, y: 0 };
+    const pad = this.root.querySelector('[data-joy]'), knob = this.root.querySelector('[data-knob]');
+    let jid = null;
+    const setJoy = (e) => {
+      const r = pad.getBoundingClientRect(), R = r.width / 2;
+      let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+      const d = Math.hypot(dx, dy), max = R * 0.62;
+      if (d > max) { dx *= max / d; dy *= max / d; }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      const k = Math.min(1, d / max), dead = k < 0.15 ? 0 : 1;
+      this.joy = { x: d ? (dx / Math.min(d, max)) * k * dead : 0, y: d ? (dy / Math.min(d, max)) * k * dead : 0 };
+    };
+    pad.addEventListener('pointerdown', (e) => { jid = e.pointerId; pad.setPointerCapture(e.pointerId); pad.classList.add('on'); this.audio.unlock(); setJoy(e); e.stopPropagation(); });
+    pad.addEventListener('pointermove', (e) => { if (e.pointerId === jid) setJoy(e); });
+    const endJoy = (e) => { if (e.pointerId !== jid) return; jid = null; pad.classList.remove('on'); knob.style.transform = ''; this.joy = { x: 0, y: 0 }; };
+    pad.addEventListener('pointerup', endJoy); pad.addEventListener('pointercancel', endJoy);
+    // action button: hold to keep working
+    const act = this.root.querySelector('[data-act]');
+    act.addEventListener('pointerdown', (e) => { this.actHeld = true; act.setPointerCapture(e.pointerId); this.audio.unlock(); e.stopPropagation(); });
+    for (const ev of ['pointerup', 'pointercancel']) act.addEventListener(ev, () => { this.actHeld = false; });
+    // keyboard: WASD or arrows to walk, Space or E to work
+    this.keys = new Set();
+    document.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; this.keys.add(e.code); if (e.code === 'Space') e.preventDefault(); });
+    document.addEventListener('keyup', (e) => this.keys.delete(e.code));
     on('[data-demolish]', () => { this.scene.demolishSelected(); this.sfx('bad'); this.refresh(); });
     // press feedback: a short highlight on every HUD button
     this.root.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (b) { b.classList.remove('pressed'); void b.offsetWidth; b.classList.add('pressed'); } });
-    for (const sel of ['.top', '.bottom', '[data-info]', '[data-modal]']) {
+    for (const sel of ['.top', '[data-joy]', '.buildwrap', '[data-info]', '[data-modal]']) {
       const el = $(sel, this.root);
       for (const ev of ['pointerdown', 'pointerup', 'touchstart']) el.addEventListener(ev, (e) => e.stopPropagation());
     }
@@ -201,18 +239,31 @@ export class Hud {
       $('[data-modeicon]', this.el.chip).src = iconURL(t === 'road' ? 'road' : t, 2);
       $('[data-modetxt]', this.el.chip).textContent = `กำลังวาง${name}`;
     }
-    this.root.querySelectorAll('[data-focus]').forEach((b) => b.classList.toggle('active', s.w.focus === b.dataset.focus));
-    const FL = { auto: ['อัตโนมัติ', 'auto'], wood: ['ไม้', 'wood'], stone: ['หิน', 'stone'], food: ['อาหาร', 'food'] }[s.w.focus] || ['อัตโนมัติ', 'auto'];
-    this.root.querySelector('[data-focuslabel]').textContent = FL[0];
-    this.root.querySelector('[data-focusicon]').src = iconURL(FL[1], 3);
+    // which order is lit: for "all" when everyone shares it, for the card the selected villager's
+    const orders = new Set(s.w.villagers.map((v) => v.order || 'auto'));
+    this.root.querySelectorAll('[data-who=all]').forEach((b) => b.classList.toggle('active', orders.size === 1 && orders.has(b.dataset.order)));
+    const sv = s.selVillager && s.w.villagers.find((v) => v.id === s.selVillager);
+    this.root.querySelectorAll('[data-who=one]').forEach((b) => b.classList.toggle('active', !!sv && (sv.order || 'auto') === b.dataset.order));
   }
 
-  setFocusOpen(open) {
-    this.root.querySelector('[data-focusopts]').classList.toggle('hidden', !open);
-    const t = this.root.querySelector('[data-focustoggle]');
-    t.setAttribute('aria-expanded', String(open)); t.classList.toggle('open', open);
+  setCmd(open) {
+    this.el.cmd.classList.toggle('hidden', !open);
+    const t = this.root.querySelector('[data-cmdmenu]');
+    t.setAttribute('aria-expanded', String(open)); t.classList.toggle('on', open);
+    if (open) this.refresh();
+  }
+  // the action button shows what it will do: chop, mine, pick or build
+  setAction(t) {
+    const key = !t ? 'none' : t.kind === 'build' ? 'build' : t.t;
+    if (key === this._act) return;
+    this._act = key;
+    const [ic, txt] = { tree: ['axe', 'ตัดไม้'], rock: ['stone', 'ขุดหิน'], bush: ['food', 'เก็บผล'], build: ['hammer', 'ซ่อม/สร้าง'], none: ['hand', 'ทำงาน'] }[key];
+    this.root.querySelector('[data-acticon]').src = iconURL(ic, 4);
+    this.root.querySelector('[data-acttxt]').textContent = txt;
+    this.root.querySelector('[data-act]').classList.toggle('ready', key !== 'none');
   }
   setPanel(open) {
+    if (open) this.setCmd(false);
     this.el.panel.classList.toggle('hidden', !open);
     this.el.menuBtn.setAttribute('aria-expanded', String(open));
     this.el.menuBtn.classList.toggle('on', open);
@@ -226,11 +277,14 @@ export class Hud {
     $('[data-info-name]', el).textContent = v.name;
     $('[data-info-hp]', el).textContent = v.doing;
     $('[data-demolish]', el).classList.add('hidden');
+    $('[data-vorders]', el).classList.remove('hidden');
+    this.refresh();
     el.classList.remove('hidden');
   }
   showInfo(b) {
     const el = this.el.info;
     $('[data-info-pic]', el).classList.add('hidden');
+    $('[data-vorders]', el).classList.add('hidden');
     if (!b) { el.classList.add('hidden'); return; }
     const def = BUILDINGS[b.type];
     $('[data-info-name]', el).textContent = def.name + (b.done ? '' : ' (กำลังสร้าง)');
@@ -331,7 +385,8 @@ export class Hud {
         <p>${icon('house')}<b>บ้าน</b>เพิ่มประชากร <b>ฟาร์ม</b>ผลิตอาหาร</p>
         <p>${icon('moon')}กลางคืนมอนสเตอร์บุก ดูได้ที่ป้าย "คืนนี้จะมา" ใต้นาฬิกา (แตะเพื่อดูทิศ)</p>
         <p>${icon('tower')}<b>หอธนู</b>ยิงตัวที่ใกล้อาคารที่สุดก่อน <b>กำแพง</b>กันสไลม์และก็อบลิน แต่<b>ค้างคาวบินข้ามได้</b></p>
-        <p>${icon('hand')}ลากเลื่อนแผนที่ ถ่างสองนิ้วซูม แตะอาคารเพื่อดูหรือรื้อ</p>
+        <p>${icon('hand')}จอยซ้ายล่างเดิน ปุ่มขวาล่างตัดไม้ ขุดหิน เก็บผล (คีย์บอร์ด: WASD กับ Space)</p>
+        <p>${icon('person')}แตะชาวบ้านเพื่อสั่งทีละคน หรือกดปุ่ม "สั่งงาน" เพื่อสั่งทุกคน</p>
       </div>
       <div class="row">
         <button class="btn big" data-m="resume">เล่นต่อ</button>

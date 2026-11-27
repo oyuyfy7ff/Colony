@@ -290,7 +290,7 @@ const SKINS = ['#f2c7a0', '#d9a173', '#a8724a'];
 const BUN = ['....kk......', '...kHHk.....', '...kHHk.....', '..kkkkkk....'];
 const HAT = ['...kkkkkk...', '..kTTTTTTk..', '.kTTTTTTTTk.'];
 const HATS = ['#c9a43a', '#b13e53', '#3b5dc9', '#6b3d23'];
-function villager(look, legs) {
+function villager(look, legs, over = null) {
   // look -> skin, hair colour, hair style, shirt and trousers, so 24 looks rarely repeat side by side
   const hair = HAIRS[look % HAIRS.length], shirt = SHIRTS[(look * 5) % SHIRTS.length], pants = PANTS[(look >> 1) % PANTS.length];
   const skin = SKINS[(look >> 2) % SKINS.length], style = (look * 7) % 4;
@@ -300,7 +300,7 @@ function villager(look, legs) {
   if (style === 3) head = [...HAT, ...HEAD.slice(3)];
   const rws = [...head, ...BODY, ...LEGS[legs]];
   const c = cv(12, rws.length), { px } = painter(c);
-  const col = { k: COZY.ink, H: hair, p: skin, r: '#c9705a', S: shirt, B: pants, D: '#3a2a20', T: HATS[look % HATS.length] };
+  const col = { k: COZY.ink, H: hair, p: skin, r: '#c9705a', S: shirt, B: pants, D: '#3a2a20', T: HATS[look % HATS.length], ...(over || {}) };
   rws.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (col[row[i]]) px(i, j, col[row[i]]); });
   // eyes are dark pixels in the face row: keep them, they read as eyes at this size
   return c;
@@ -379,6 +379,8 @@ export function cozySprites() {
     out[`vill${look}_1`] = villager(look, 'b');
     out[`vill${look}_sit`] = villager(look, 'sit');
   }
+  const HERO = { S: '#ffcd75', T: '#257179', B: '#6b3d23', H: '#4a2c1a', p: '#f2c7a0' };
+  out.hero_0 = villager(1, 'a', HERO); out.hero_1 = villager(1, 'b', HERO);
   out.fence = fence();
   out.flowerbed = flowerbed();
   out.shrub = bush();

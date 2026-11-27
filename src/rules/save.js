@@ -4,7 +4,7 @@
 import { MAP_W, MAP_H, NAMES } from './config.js';
 import { rebuild, previewNight, assignHomes } from './world.js';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const SAVE_KEY = 'pixel-colony-save';
 
 // v -> v+1, pure functions. Keep every one forever: deleting one strands that version's saves.
@@ -48,6 +48,13 @@ export const MIGRATIONS = {
     const r = () => Math.random();
     for (const k in d.nodes || {}) if (d.nodes[k].t === 'tree' && !d.nodes[k].style) { const x = r(); d.nodes[k].style = x < 0.25 ? 'pine' : x < 0.37 ? 'blossom' : 'round'; delete d.nodes[k].pine; }
     for (const v of d.villagers || []) if (v.hidden && !keep.some((b) => b.id === v.home)) v.home = 0;
+    return d;
+  },
+  4: (d) => {
+    // v5: the player walks the map, and villagers take orders
+    const h = (d.buildings || []).find((b) => b.type === 'hall');
+    d.player = d.player || { x: (h ? h.x + 1 : MAP_W / 2) + 0.5, y: (h ? h.y + 3 : MAP_H / 2) + 0.5, face: 1, cd: 0, moving: false };
+    for (const v of d.villagers || []) v.order = v.order || (d.focus && d.focus !== 'auto' ? d.focus : 'auto');
     return d;
   },
 };

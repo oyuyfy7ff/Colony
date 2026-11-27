@@ -73,7 +73,7 @@ export function downhill(dist, x, y, passable) {
 // Same corner rule and output as bfs (tiles after the start).
 export function dijkstra(sx, sy, passable, cost, isGoal) {
   const N = MAP_W * MAP_H, start = sy * MAP_W + sx;
-  const dist = new Float32Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1);
+  const dist = new Float64Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1); // 64-bit: float32 rounding made popped entries look stale
   const heap = [[0, start]];
   dist[start] = 0;
   const push = (e) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };

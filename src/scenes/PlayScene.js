@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { TILE, MAP_W, MAP_H, BUILDINGS, DAY_LEN, NIGHT_LEN, WARN_TIME, WEAR_PATH, T_WATER } from '../rules/config.js';
-import { createWorld, tick, canPlace, canAfford, placeBuilding, demolish, buildingAt, placeRoad, canRoad, greet, activity, plazaSeats, hall as hallOf } from '../rules/world.js';
+import { createWorld, tick, canPlace, canAfford, placeBuilding, demolish, buildingAt, placeRoad, canRoad, greet, activity, plazaSeats, hall as hallOf, movePlayer, playerAct, playerTarget, setOrder } from '../rules/world.js';
 import { loadFrom, writeTo, clearFrom } from '../rules/save.js';
 import { makeTextures } from '../art/sprites.js';
 import { paintGround2, paintPathTile } from '../art/world-art.js';
@@ -53,6 +53,7 @@ export default class PlayScene extends Phaser.Scene {
     this.pool = [];
     this.timers = { hud: 0, mood: 0, sway: 0, paths: 0, decor: 0, smoke: 0, bird: 8, dust: 0, info: 0 };
     this.decor = [];
+    this.pl = null; this.plShadow = null; this.actT = 0; // scene objects from a previous game are gone after restart
     this.critters = { bflies: [], flies: [], birds: [], sparkles: [] };
   }
 
@@ -448,6 +449,22 @@ export default class PlayScene extends Phaser.Scene {
     if (!v || v.hidden) { this.selVillager = null; this.hud.showInfo(null); return; }
     this.hud.showVillager({ name: v.name, doing: activity(this.w, v), look: v.look });
   }
+  giveOrder(ids, order) {
+    const n = setOrder(this.w, ids, order);
+    if (this.selVillager) this.selectVillager(this.selVillager);
+    return n;
+  }
+  // joystick + keyboard -> one walk vector
+  inputVector() {
+    const j = this.hud.joy || { x: 0, y: 0 }, K = this.hud.keys || new Set();
+    let x = j.x, y = j.y;
+    if (K.has('KeyA') || K.has('ArrowLeft')) x -= 1;
+    if (K.has('KeyD') || K.has('ArrowRight')) x += 1;
+    if (K.has('KeyW') || K.has('ArrowUp')) y -= 1;
+    if (K.has('KeyS') || K.has('ArrowDown')) y += 1;
+    const d = Math.hypot(x, y);
+    return d > 1 ? { x: x / d, y: y / d } : { x, y };
+  }
   demolishSelected() {
     const b = this.w.buildings.find((x) => x.id === this.selected);
     if (b && demolish(this.w, b.id)) {
@@ -469,11 +486,17 @@ export default class PlayScene extends Phaser.Scene {
     const dt = Math.min(deltaMs / 1000, 0.1);
     if (!this.paused && !w.over) {
       this.acc += dt * this.speed * this.hitStop.scale(time);
-      while (this.acc >= STEP) { tick(w, STEP); this.acc -= STEP; }
+      const mv = this.inputVector();
+      while (this.acc >= STEP) { movePlayer(w, mv.x, mv.y, STEP); tick(w, STEP); this.acc -= STEP; }
+      const K = this.hud.keys || new Set();
+      if ((this.hud.actHeld || K.has('Space') || K.has('KeyE')) && playerAct(w)) this.actT = this.time.now;
+      if (w.player && w.player.moving) { this.camGoal = { x: w.player.x * TILE, y: w.player.y * TILE - 8 }; this.fling.vx = this.fling.vy = 0; }
       if (!w.night) { this.saveT += dt; if (this.saveT > AUTOSAVE_EVERY) { this.saveT = 0; this.save(); } }
     }
     this.handleEvents();
     this.syncAll();
+    this.syncPlayer(time);
+    this.hud.setAction(playerTarget(w));
     this.updateCamera(dt);
     const dayAmt = this.updateLight();
     this.updateCritters(dt, time, dayAmt);
@@ -489,6 +512,19 @@ export default class PlayScene extends Phaser.Scene {
       const section = w.night ? 'night' : (w.clock > DAY_LEN - WARN_TIME ? 'dusk' : 'day');
       this.hud.audio.setMood(section, Math.min(1, w.enemies.length / 10));
     }
+  }
+
+  // the player: own outfit (gold tunic, teal hat) no villager wears, plus a gold ring and marker
+  syncPlayer(now) {
+    const P = this.w.player; if (!P) return;
+    if (!this.pl) {
+      this.pl = this.add.image(0, 0, A, 'hero_0').setOrigin(0.5, 1);
+      this.plShadow = this.add.image(0, 0, A, 'shadow');
+    }
+    const working = this.actT && now - this.actT < 200;
+    this.pl.setFrame(P.moving ? `hero_${((now / 130) | 0) % 2}` : 'hero_0').setFlipX(P.face < 0)
+      .setPosition(Math.round(P.x * TILE), Math.round(P.y * TILE + 5 - (working ? 2 : 0))).setDepth(P.y * TILE + 5.1);
+    this.plShadow.setPosition(this.pl.x, Math.round(P.y * TILE + 5)).setDepth(this.pl.depth - 1);
   }
 
   // camera (camera-systems skill): remove last frame's shake, apply smooth pan or fling, add shake on top
@@ -520,6 +556,7 @@ export default class PlayScene extends Phaser.Scene {
     for (const ev of w.events) {
       switch (ev.type) {
         case 'gain': this.gainPop(ev.x * TILE, ev.y * TILE, ev.res, ev.amt); break;
+        case 'hammer': this.dust(ev.x * TILE, ev.y * TILE - 2, 3); this.hud.sfx('chop'); break;
         case 'hit': this.shakeNode(ev.node); if (this.isOnScreen(ev.node)) { this.hud.sfx('chop'); this.chips(ev.node, ev.t); } break;
         case 'depleted': this.puffs(((ev.node % MAP_W) + 0.5) * TILE, (((ev.node / MAP_W) | 0) + 0.8) * TILE, 5); if (ev.t === 'tree') this.addStump(ev.node); break;
         case 'grow': { const s = this.spr.nodes.get(ev.node); if (s) { s.setScale(0.8, 1.2); this.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: 300, ease: 'Back.Out' }); } break; }
@@ -731,6 +768,11 @@ export default class PlayScene extends Phaser.Scene {
     }
     const sel = this.selected && this.w.buildings.find((b) => b.id === this.selected);
     if (sel) { const def = BUILDINGS[sel.type]; this.selBox.lineStyle(1, 0xffcd75, a).strokeRect(sel.x * TILE + 0.5, sel.y * TILE + 0.5, def.w * TILE - 1, def.h * TILE - 1); }
+    if (this.pl) { // gold ring under the player and a small marker above
+      const x = this.pl.x, y = Math.round(this.w.player.y * TILE + 5), b = Math.sin(this.time.now / 200) * 1.5;
+      this.selBox.lineStyle(1, 0xffcd75, 0.9).strokeEllipse(x, y, 14, 5);
+      this.selBox.fillStyle(0xffcd75, 1).fillTriangle(x - 3, y - 27 + b, x + 3, y - 27 + b, x, y - 23 + b);
+    }
     const v = this.selVillager && this.spr.villagers.get(this.selVillager);
     if (v && v.visible) this.selBox.lineStyle(1, 0xffcd75, a).strokeEllipse(v.x, v.y, 16, 6);
   }

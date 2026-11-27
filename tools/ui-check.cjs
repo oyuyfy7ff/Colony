@@ -35,7 +35,7 @@ async function layoutCheck(page, label) {
   const r = await W(page, () => {
     const emoji = /\p{Extended_Pictographic}/u.test(document.body.innerText);
     const vis = (el) => el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
-    const panels = ['.resbar', '.clock', '.btns', '.focus', '.buildwrap'].map((s) => document.querySelector(s)).filter(vis);
+    const panels = ['.resbar', '.clock', '.btns', '.joy', '.buildwrap', '[data-info]'].map((s) => document.querySelector(s)).filter(vis);
     const rects = panels.map((e) => e.getBoundingClientRect());
     const overlaps = [];
     for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
@@ -181,6 +181,8 @@ async function freeTileScreen(page, type) {
     await wait(page, 150);
     ok('tapping a villager shows their name and activity', await W(page, (n) => !document.querySelector('[data-info]').classList.contains('hidden') && document.querySelector('[data-info-name]').textContent === n && document.querySelector('[data-info-hp]').textContent.length > 2, vp.name));
     ok('the villager waves', await W(page, (id) => game.scene.getScene('play').w.villagers.find((v) => v.id === id).emote?.k === 'wave', vp.id));
+    await page.locator('[data-who=one][data-order=wood]').tap();
+    ok('order ONE villager from their card: only they change', await W(page, (id) => { const w = game.scene.getScene('play').w; return w.villagers.find((v) => v.id === id).order === 'wood' && w.villagers.filter((v) => v.id !== id).every((v) => v.order === 'auto') && document.querySelector('[data-who=one][data-order=wood]').classList.contains('active'); }, vp.id));
     await W(page, () => { game.scene.getScene('play').paused = false; });
     await wait(page, 300);
     await shot(page, 'villager-card');
@@ -200,16 +202,44 @@ async function freeTileScreen(page, type) {
   await wait(page, 150);
   ok('demolish removes the wall and closes the panel', await W(page, () => !game.scene.getScene('play').w.buildings.some((b) => b.type === 'wall') && document.querySelector('[data-info]').classList.contains('hidden')));
 
-  // focus buttons
-  await page.locator('[data-focustoggle]').tap();
-  ok('work focus menu opens', await W(page, () => !document.querySelector('[data-focusopts]').classList.contains('hidden')));
+  // order everyone
+  await page.locator('[data-cmdmenu]').tap();
+  ok('command menu opens', await W(page, () => !document.querySelector('[data-cmdpanel]').classList.contains('hidden')));
   await wait(page, 400);
-  await shot(page, 'focus-menu');
-  await page.locator('[data-focus=stone]').tap();
-  ok('choosing a focus closes the menu and shows it on the button', await W(page, () => document.querySelector('[data-focusopts]').classList.contains('hidden') && document.querySelector('[data-focuslabel]').textContent === 'หิน'));
-  ok('work focus switches to stone', await W(page, () => game.scene.getScene('play').w.focus === 'stone' && document.querySelector('[data-focus=stone]').classList.contains('active')));
-  await page.locator('[data-focustoggle]').tap();
-  await page.locator('[data-focus=auto]').tap();
+  await shot(page, 'command-all');
+  await layoutCheck(page, 'command menu');
+  await page.locator('[data-who=all][data-order=stone]').tap();
+  ok('order ALL villagers: everyone mines stone, menu closes', await W(page, () => game.scene.getScene('play').w.villagers.every((v) => v.order === 'stone') && document.querySelector('[data-cmdpanel]').classList.contains('hidden')));
+  await page.locator('[data-cmdmenu]').tap();
+  await page.locator('[data-who=all][data-order=auto]').tap();
+
+  // joystick walk + action button chop
+  const p0 = await W(page, () => ({ ...game.scene.getScene('play').w.player }));
+  const pad = await page.locator('[data-joy]').boundingBox();
+  const cx = pad.x + pad.width / 2, cy = pad.y + pad.height / 2;
+  await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + pad.width * 0.4, cy, { steps: 4 });
+  await wait(page, 700);
+  ok('joystick knob moves while dragging', await W(page, () => document.querySelector('[data-knob]').style.transform.includes('translate')));
+  await page.mouse.up();
+  const p1 = await W(page, () => ({ ...game.scene.getScene('play').w.player }));
+  ok('dragging the joystick right walks the player right', p1.x > p0.x + 0.8, `${p0.x.toFixed(2)} -> ${p1.x.toFixed(2)}`);
+  ok('the camera follows the player', await W(page, () => { const s = game.scene.getScene('play'); return s.cameras.main.worldView.contains(s.w.player.x * 16, s.w.player.y * 16); }));
+  // stand next to a tree and hold the action button
+  await W(page, () => {
+    const s = game.scene.getScene('play'), w = s.w;
+    for (const k in w.nodes) { const n = w.nodes[k], x = k % 48, y = (k / 48) | 0; if (n.t === 'tree' && (n.grow ?? 2) >= 2 && colonyRules.walkable(w, x, y + 1)) { w.player.x = x + 0.5; w.player.y = y + 1.5; return; } }
+  });
+  await wait(page, 300);
+  ok('action button shows chop when facing a tree', await W(page, () => document.querySelector('[data-acttxt]').textContent === 'ตัดไม้'));
+  const wood0 = await W(page, () => game.scene.getScene('play').w.stock.wood);
+  const act = await page.locator('[data-act]').boundingBox();
+  await page.mouse.move(act.x + act.width / 2, act.y + act.height / 2); await page.mouse.down();
+  await wait(page, 1500);
+  await shot(page, 'player-chop');
+  await page.mouse.up();
+  const wood1 = await W(page, () => game.scene.getScene('play').w.stock.wood);
+  ok('holding the action button chops wood', wood1 >= wood0 + 3, `${wood0} -> ${wood1}`);
+  await layoutCheck(page, 'joystick and action');
 
   // home and raid buttons move the camera
   await W(page, () => game.scene.getScene('play').cameras.main.setScroll(0, 0));
