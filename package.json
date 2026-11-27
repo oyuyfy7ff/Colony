@@ -1,19 +1,17 @@
 {
-  "name": "pixel-colony",
+  "name": "games",
   "private": true,
-  "version": "0.1.0",
-  "type": "module",
+  "workspaces": [
+    "games/*"
+  ],
   "scripts": {
-    "dev": "vite --host",
-    "build": "vite build",
-    "preview": "vite preview --host",
-    "test": "node --test tests/*.test.js",
-    "check": "bash tools/release-check.sh"
-  },
-  "dependencies": {
-    "phaser": "^4.2.0"
-  },
-  "devDependencies": {
-    "vite": "^8.4.0"
+    "dev:colony": "npm run dev -w pixel-colony",
+    "build:colony": "npm run build -w pixel-colony",
+    "test:colony": "npm test -w pixel-colony",
+    "check:colony": "npm run check -w pixel-colony",
+    "dev:game2": "npm run dev -w game2",
+    "build:game2": "npm run build -w game2",
+    "test:game2": "npm test -w game2",
+    "test": "npm test --workspaces --if-present"
   }
 }
