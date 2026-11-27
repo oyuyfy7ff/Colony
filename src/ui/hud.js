@@ -1,31 +1,44 @@
-// HTML HUD over the canvas: crisp Thai text at any screen size, big touch targets.
-import { BUILDINGS, BUILD_ORDER, DAY_LEN, NIGHT_LEN } from '../rules/config.js';
+// HTML HUD over the canvas (game-ui-ux skill): crisp Thai text at any size, 44px+ touch targets,
+// safe-area insets in CSS, updates driven by world events instead of polling every frame,
+// modals as a screen stack with focus moved into the top screen and restored on close.
+import { BUILDINGS, BUILD_ORDER, DAY_LEN, NIGHT_LEN, ENEMY_NAME } from '../rules/config.js';
 import { canAfford, popCap } from '../rules/world.js';
 import { iconURL } from '../art/sprites.js';
-import { Sfx } from './sfx.js';
+import { GameAudio } from './audio.js';
+import { loadSettings, saveSettings } from './settings.js';
 
 const RES_NAME = { wood: 'ไม้', stone: 'หิน', food: 'อาหาร' };
+const SIDE = ['ตะวันตก', 'ตะวันออก', 'เหนือ', 'ใต้'];
+const SIDE_ARROW = ['⬅', '➡', '⬆', '⬇'];
 const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export class Hud {
   constructor(root, game) {
     this.root = root;
     this.game = game;
     this.scene = null;
-    this.sound = new Sfx();
+    this.settings = loadSettings();
+    this.audio = new GameAudio(this.settings);
+    this.stack = []; // screen stack: [{ name, html, focusBack }]
     this.root.innerHTML = `
       <div class="top">
         <div class="chips">
-          ${['wood', 'stone', 'food'].map((r) => `<div class="chip" title="${RES_NAME[r]}"><img src="${iconURL(r)}"><b data-res="${r}">0</b></div>`).join('')}
-          <div class="chip" title="ประชากร"><img src="${iconURL('pop')}"><b data-pop>0</b></div>
+          ${['wood', 'stone', 'food'].map((r) => `<div class="chip" title="${RES_NAME[r]}"><img src="${iconURL(r)}" alt="${RES_NAME[r]}"><b data-res="${r}">0</b></div>`).join('')}
+          <div class="chip" title="ประชากร"><img src="${iconURL('pop')}" alt="ประชากร"><b data-pop>0</b></div>
         </div>
-        <div class="clock"><span data-day>วันที่ 1</span><div class="sunbar"><i data-sun></i></div></div>
+        <div class="clock">
+          <div class="dayrow"><span data-day>วันที่ 1</span><span class="fed" data-fed></span></div>
+          <div class="sunbar"><i data-sun></i></div>
+          <button class="raid" data-raid title="ศัตรูคืนนี้"></button>
+        </div>
         <div class="btns">
-          <button class="btn" data-speed>▶ 1x</button>
-          <button class="btn" data-menu>☰</button>
+          <button class="btn" data-home aria-label="กลับไปที่ศาลากลาง">⌂</button>
+          <button class="btn" data-speed aria-label="ความเร็ว">▶ 1x</button>
+          <button class="btn" data-menu aria-label="เมนู">☰</button>
         </div>
       </div>
-      <div class="toasts" data-toasts></div>
+      <div class="toasts" data-toasts role="status" aria-live="polite"></div>
       <div class="info hidden" data-info>
         <div><b data-info-name></b> <span data-info-hp></span></div>
         <button class="btn danger" data-demolish>รื้อ (คืนครึ่งหนึ่ง)</button>
@@ -38,32 +51,33 @@ export class Hud {
         <div class="build">
           ${BUILD_ORDER.map((t) => `
             <button class="bbtn" data-build="${t}">
-              <img src="${iconURL(t, 3)}">
+              <img src="${iconURL(t, 3)}" alt="">
               <span class="nm">${BUILDINGS[t].name}</span>
-              <span class="cost">${Object.entries(BUILDINGS[t].cost).map(([k, v]) => `<img src="${iconURL(k, 2)}">${v}`).join(' ')}</span>
+              <span class="cost">${Object.entries(BUILDINGS[t].cost).map(([k, v]) => `<img src="${iconURL(k, 2)}" alt="${RES_NAME[k]}"><span data-cost="${k}">${v}</span>`).join(' ')}</span>
             </button>`).join('')}
           <button class="bbtn cancel hidden" data-cancel>✕<span class="nm">ยกเลิก</span></button>
         </div>
       </div>
-      <div class="modal hidden" data-modal></div>
+      <div class="modal hidden" data-modal role="dialog" aria-modal="true"></div>
     `;
     this.el = {
       res: Object.fromEntries(['wood', 'stone', 'food'].map((r) => [r, $(`[data-res=${r}]`, root)])),
-      pop: $('[data-pop]', root), day: $('[data-day]', root), sun: $('[data-sun]', root),
-      speed: $('[data-speed]', root), toasts: $('[data-toasts]', root), info: $('[data-info]', root),
-      modal: $('[data-modal]', root), cancel: $('[data-cancel]', root),
+      pop: $('[data-pop]', root), day: $('[data-day]', root), sun: $('[data-sun]', root), fed: $('[data-fed]', root),
+      raid: $('[data-raid]', root), speed: $('[data-speed]', root), toasts: $('[data-toasts]', root),
+      info: $('[data-info]', root), modal: $('[data-modal]', root), cancel: $('[data-cancel]', root),
     };
     this.bindings();
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { if (this.stack.length && this.stack.at(-1).name !== 'title' && this.stack.at(-1).name !== 'over') this.pop(); else if (!this.stack.length) this.menu(); }
+    });
   }
 
   bindings() {
-    const on = (sel, fn) => this.root.querySelectorAll(sel).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.sound.unlock(); fn(b); }));
-    on('[data-speed]', () => {
-      const s = this.scene; if (!s) return;
-      s.speed = s.speed >= 3 ? 1 : s.speed + 1;
-      this.sfx('click');
-    });
+    const on = (sel, fn) => this.root.querySelectorAll(sel).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.audio.unlock(); fn(b); }));
+    on('[data-speed]', () => { const s = this.scene; if (!s) return; s.speed = s.speed >= 3 ? 1 : s.speed + 1; this.sfx('click'); this.clock(true); });
     on('[data-menu]', () => this.menu());
+    on('[data-home]', () => { this.scene?.focusHall(); this.sfx('click'); });
+    on('[data-raid]', () => { this.scene?.focusSide(this.scene.w.nextSide); this.sfx('click'); });
     on('[data-build]', (b) => {
       const t = b.dataset.build;
       this.scene.setBuild(this.scene.buildType === t ? null : t);
@@ -73,8 +87,7 @@ export class Hud {
     });
     on('[data-cancel]', () => { this.scene.setBuild(null); this.refresh(); });
     on('[data-focus]', (b) => { this.scene.w.focus = b.dataset.focus; this.sfx('click'); this.refresh(); });
-    on('[data-demolish]', () => { this.scene.demolishSelected(); this.sfx('bad'); });
-    // keep canvas from getting taps that land on HUD panels
+    on('[data-demolish]', () => { this.scene.demolishSelected(); this.sfx('bad'); this.refresh(); });
     for (const sel of ['.top', '.bottom', '[data-info]', '[data-modal]']) {
       const el = $(sel, this.root);
       for (const ev of ['pointerdown', 'pointerup', 'touchstart']) el.addEventListener(ev, (e) => e.stopPropagation());
@@ -83,44 +96,66 @@ export class Hud {
 
   attach(scene) {
     this.scene = scene;
+    this.stack = [];
     this.showInfo(null);
-    if (!this._titled) { this._titled = true; this.title(scene.registry.get('hadSave')); } else this.closeModal();
-    this.refresh();
+    if (!this._titled) { this._titled = true; this.title(scene.loadInfo); } else this.render();
+    this.refresh(); this.stocks(); this.clock(true); this.raidPreview();
   }
-  sfx(name) { this.sound.play(name); }
+  sfx(name) { this.audio.play(name); }
 
+  // ---------- event-driven updates ----------
+  onEvent(ev) {
+    switch (ev.type) {
+      case 'gain': case 'built': case 'born': case 'destroyed': case 'placed': this.stocks(); this.refresh(); break;
+      case 'day': this.stocks(); this.raidPreview(); this.clock(true); break;
+      case 'night': this.raidPreview(); this.clock(true); break;
+    }
+  }
+  stocks() {
+    const w = this.scene.w;
+    for (const r in this.el.res) {
+      const v = String(w.stock[r]);
+      if (this.el.res[r].textContent === v) continue;
+      this.el.res[r].textContent = v;
+      const chip = this.el.res[r].parentElement;
+      chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump');
+    }
+    this.el.pop.textContent = `${w.villagers.length}/${popCap(w)}`;
+  }
+  // the day clock moves continuously; 4 Hz is plenty (called by the scene)
+  clock(force) {
+    const s = this.scene; if (!s) return;
+    const w = s.w;
+    const day = `${w.night ? '🌙' : '☀️'} วันที่ ${w.day}`;
+    if (force || this.el.day.textContent !== day) this.el.day.textContent = day;
+    this.el.sun.style.width = `${Math.min(100, (w.clock / (DAY_LEN + NIGHT_LEN)) * 100).toFixed(1)}%`;
+    this.el.sun.parentElement.classList.toggle('isnight', w.night);
+    this.el.fed.textContent = w.fed ? '🍞 อิ่ม' : '🥣 หิว';
+    this.el.fed.title = w.fed ? 'ชาวบ้านกินอิ่ม ทำงานเร็วขึ้นวันนี้' : 'อาหารไม่พอมื้อเช้า ทำงานช้ากว่าปกติ';
+    const sp = s.paused ? '❚❚' : `▶ ${s.speed}x`;
+    if (this.el.speed.textContent !== sp) this.el.speed.textContent = sp;
+  }
+  raidPreview() {
+    const w = this.scene.w, plan = w.nextWave;
+    if (!plan) return;
+    const parts = plan.groups.map((g) => `<img src="${iconURL(g.kind, 2)}" alt="${ENEMY_NAME[g.kind]}">${g.count}`).join(' ');
+    const tag = plan.tag === 'spike' ? '<span class="tag spike">คืนเดือนแดง</span>' : plan.tag === 'calm' ? '<span class="tag calm">คืนสงบ</span>' : '';
+    this.el.raid.innerHTML = `${w.night ? 'คืนนี้' : 'คืนนี้จะมา'} ${parts} ${SIDE_ARROW[w.nextSide]} ${tag}`;
+    this.el.raid.setAttribute('aria-label', `ศัตรูคืนนี้ ${plan.groups.map((g) => `${ENEMY_NAME[g.kind]} ${g.count}`).join(' ')} จากทิศ${SIDE[w.nextSide]}`);
+  }
   refresh() {
     const s = this.scene; if (!s) return;
+    this.stocks();
     this.root.querySelectorAll('[data-build]').forEach((b) => {
-      b.classList.toggle('active', s.buildType === b.dataset.build);
-      b.classList.toggle('poor', !canAfford(s.w, b.dataset.build));
+      const t = b.dataset.build;
+      b.classList.toggle('active', s.buildType === t);
+      const poor = !canAfford(s.w, t);
+      b.classList.toggle('poor', poor);
+      // not colour alone: the missing cost number turns red AND gets a marker
+      b.querySelectorAll('[data-cost]').forEach((c) => c.classList.toggle('short', s.w.stock[c.dataset.cost] < BUILDINGS[t].cost[c.dataset.cost]));
     });
     this.el.cancel.classList.toggle('hidden', !s.buildType);
     this.root.querySelectorAll('[data-focus]').forEach((b) => b.classList.toggle('active', s.w.focus === b.dataset.focus));
-  }
-
-  update() {
-    const s = this.scene; if (!s) return;
-    const w = s.w;
-    for (const r in this.el.res) {
-      const v = String(w.stock[r]);
-      if (this.el.res[r].textContent !== v) {
-        this.el.res[r].textContent = v;
-        this.el.res[r].parentElement.classList.remove('bump'); void this.el.res[r].offsetWidth;
-        this.el.res[r].parentElement.classList.add('bump');
-      }
-    }
-    const pop = `${w.villagers.length}/${popCap(w)}`;
-    if (this.el.pop.textContent !== pop) this.el.pop.textContent = pop;
-    const day = `${w.night ? '🌙' : '☀️'} วันที่ ${w.day}`;
-    if (this.el.day.textContent !== day) this.el.day.textContent = day;
-    const frac = w.clock / (DAY_LEN + NIGHT_LEN);
-    this.el.sun.style.width = `${Math.min(100, frac * 100).toFixed(1)}%`;
-    this.el.sun.parentElement.classList.toggle('isnight', w.night);
-    const sp = s.paused ? '❚❚' : `▶ ${s.speed}x`;
-    if (this.el.speed.textContent !== sp) this.el.speed.textContent = sp;
-    if ((this._rt = (this._rt || 0) + 1) % 15 === 0) this.refresh();
-    if (s.selected && (this._rt % 10 === 0)) this.showInfo(w.buildings.find((b) => b.id === s.selected));
   }
 
   showInfo(b) {
@@ -139,72 +174,126 @@ export class Hud {
     t.textContent = text;
     this.el.toasts.prepend(t);
     while (this.el.toasts.children.length > 3) this.el.toasts.lastChild.remove();
-    setTimeout(() => t.classList.add('out'), 2600);
-    setTimeout(() => t.remove(), 3100);
+    setTimeout(() => t.classList.add('out'), 2800);
+    setTimeout(() => t.remove(), 3300);
   }
 
-  modal(html) {
-    this.el.modal.innerHTML = `<div class="card">${html}</div>`;
+  // ---------- screen stack ----------
+  push(name, html) {
+    // remember what had focus by its data-m key: the screen below is re-rendered on pop
+    this.stack.push({ name, html, focusBack: document.activeElement?.dataset?.m || null });
+    this.render();
+  }
+  pop() {
+    const top = this.stack.pop();
+    this.render();
+    if (top && top.focusBack) this.el.modal.querySelector(`[data-m="${top.focusBack}"]`)?.focus({ preventScroll: true });
+  }
+  replace(name, html) { this.stack.pop(); this.push(name, html); }
+  render() {
+    const top = this.stack.at(-1);
+    if (this.scene) this.scene.paused = !!top || this.scene.w.over;
+    if (!top) { this.el.modal.classList.add('hidden'); this.el.modal.innerHTML = ''; this.clock(true); return; }
+    this.el.modal.innerHTML = `<div class="card">${top.html}</div>`;
     this.el.modal.classList.remove('hidden');
-    if (this.scene) this.scene.paused = true;
+    this.wireModal(top.name);
+    // move focus into the top screen; Tab stays inside it
+    const first = this.el.modal.querySelector('[data-m], input, button');
+    first?.focus({ preventScroll: true });
+    this.clock(true);
   }
-  closeModal() {
-    this.el.modal.classList.add('hidden');
-    if (this.scene && !this.scene.w.over) this.scene.paused = false;
-  }
-
-  menu() {
-    this.modal(`
-      <h2>พักเกม</h2>
-      <div class="help">
-        <p>🪓 ชาวบ้านจะตัดไม้ ขุดหิน เก็บผลไม้เองอัตโนมัติ</p>
-        <p>🏠 สร้าง<b>บ้าน</b>เพิ่มประชากร (ใช้อาหารเกิดคนใหม่) · <b>ฟาร์ม</b>ผลิตอาหาร</p>
-        <p>🌙 กลางคืนมอนสเตอร์บุก — สร้าง<b>หอธนู</b>และ<b>กำแพง</b>ป้องกันศาลากลาง</p>
-        <p>👆 ลากเพื่อเลื่อนแผนที่ · ถ่างสองนิ้วเพื่อซูม · แตะอาคารเพื่อดู/รื้อ</p>
-      </div>
-      <div class="row">
-        <button class="btn big" data-m="resume">เล่นต่อ</button>
-        <button class="btn big" data-m="sound">${this.sound.muted ? '🔇 เสียงปิด' : '🔊 เสียงเปิด'}</button>
-        <button class="btn big" data-m="fs">⛶ เต็มจอ</button>
-        <button class="btn big danger" data-m="new">เริ่มใหม่</button>
-      </div>`);
-    this.modalButtons();
-  }
-
-  modalButtons() {
-    this.el.modal.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
-      this.sound.unlock();
+  wireModal() {
+    const card = this.el.modal.querySelector('.card');
+    const focusables = () => [...card.querySelectorAll('button, input')];
+    card.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const f = focusables(); if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f.at(-1).focus(); }
+      else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+    });
+    card.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
+      this.audio.unlock();
       const m = b.dataset.m;
-      if (m === 'resume') this.closeModal();
-      if (m === 'sound') { this.sound.muted = !this.sound.muted; this.menu(); }
-      if (m === 'fs') { goFullscreen(); this.closeModal(); }
+      if (m === 'resume' || m === 'start') { if (m === 'start') goFullscreen(); this.stack = []; this.render(); }
+      if (m === 'back') this.pop();
+      if (m === 'settings') this.push('settings', this.settingsHtml());
+      if (m === 'fs') { goFullscreen(); this.stack = []; this.render(); }
       if (m === 'new') {
         if (b.dataset.sure || this.scene.w.over) this.game.newGame();
         else { b.dataset.sure = '1'; b.textContent = 'แน่ใจ? แตะอีกครั้ง'; }
       }
-      if (m === 'start') { goFullscreen(); this.closeModal(); }
     }));
+    card.querySelectorAll('input[data-set]').forEach((inp) => {
+      const k = inp.dataset.set;
+      inp.addEventListener(inp.type === 'checkbox' ? 'change' : 'input', () => {
+        this.settings[k] = inp.type === 'checkbox' ? inp.checked : inp.value / 100;
+        saveSettings(this.settings);
+        this.audio.applyVolumes();
+        this.scene?.applySettings(this.settings);
+        if (k === 'sfx') this.sfx('click');
+      });
+    });
   }
 
-  title(hasSave) {
-    this.modal(`
+  menu() {
+    if (this.stack.length) return;
+    this.push('menu', `
+      <h2>พักเกม</h2>
+      <div class="help">
+        <p>🪓 ชาวบ้านตัดไม้ ขุดหิน เก็บผลไม้เองอัตโนมัติ · มื้อเช้าอิ่มแล้วทำงานเร็วขึ้น</p>
+        <p>🏠 <b>บ้าน</b>เพิ่มประชากร · <b>ฟาร์ม</b>ผลิตอาหาร</p>
+        <p>🌙 กลางคืนมอนสเตอร์บุก ดูได้ที่ป้าย "คืนนี้จะมา" ใต้นาฬิกา (แตะเพื่อดูทิศ)</p>
+        <p>🏹 <b>หอธนู</b>ยิงตัวที่ใกล้อาคารที่สุดก่อน · <b>กำแพง</b>กันสไลม์และก็อบลิน แต่<b>ค้างคาวบินข้ามได้</b></p>
+        <p>👆 ลากเลื่อนแผนที่ · ถ่างสองนิ้วซูม · แตะอาคารเพื่อดู/รื้อ</p>
+      </div>
+      <div class="row">
+        <button class="btn big" data-m="resume">เล่นต่อ</button>
+        <button class="btn big" data-m="settings">ตั้งค่า</button>
+        <button class="btn big" data-m="fs">⛶ เต็มจอ</button>
+        <button class="btn big danger" data-m="new">เริ่มใหม่</button>
+      </div>`);
+  }
+
+  settingsHtml() {
+    const s = this.settings;
+    const slider = (k, label) => `<label class="set"><span>${label}</span><input type="range" min="0" max="100" step="5" data-set="${k}" value="${Math.round(s[k] * 100)}" aria-label="${label}"></label>`;
+    return `
+      <h2>ตั้งค่า</h2>
+      <div class="sets">
+        ${slider('music', '🎵 เพลง')}
+        ${slider('sfx', '🔊 เสียงเอฟเฟกต์')}
+        ${slider('shake', '📳 จอสั่น')}
+        <label class="set"><span>✨ ลดแสงกะพริบ</span><input type="checkbox" data-set="reduceFlash" ${s.reduceFlash ? 'checked' : ''}></label>
+      </div>
+      <div class="row"><button class="btn big" data-m="back">กลับ</button></div>`;
+  }
+
+  title(info) {
+    const has = !!(info && info.w);
+    let note = '';
+    if (info?.from === 'backup') note = '<p class="note">ไฟล์เซฟล่าสุดเสียหาย จึงโหลดจากเซฟสำรองก่อนหน้าแทน</p>';
+    if (info?.error === 'newer') note = '<p class="note">เซฟนี้มาจากเกมเวอร์ชันใหม่กว่า จึงเปิดไม่ได้ (ไม่ได้ลบทิ้ง) ลองรีเฟรชหน้าเพื่ออัปเดตเกม</p>';
+    if (info?.error === 'corrupt') note = '<p class="note">เซฟเดิมเสียหาย เริ่มหมู่บ้านใหม่ให้แล้ว</p>';
+    this.push('title', `
       <h1>Pixel Colony</h1>
       <p class="sub">สร้างหมู่บ้านเล็กๆ ของคุณ แล้วปกป้องมันในยามค่ำคืน</p>
+      ${note}
       <div class="row">
-        <button class="btn big" data-m="start">${hasSave ? 'เล่นต่อ' : 'เริ่มเล่น'}</button>
-        ${hasSave ? '<button class="btn big danger" data-m="new">เริ่มใหม่</button>' : ''}
+        <button class="btn big" data-m="start">${has ? `เล่นต่อ (วันที่ ${info.w.day})` : 'เริ่มเล่น'}</button>
+        ${has ? '<button class="btn big danger" data-m="new">เริ่มใหม่</button>' : ''}
+        <button class="btn big" data-m="settings">ตั้งค่า</button>
       </div>`);
-    this.modalButtons();
   }
 
   gameOver() {
     const w = this.scene.w;
     this.sfx('over');
-    this.modal(`
+    this.stack = [];
+    this.push('over', `
       <h2>ศาลากลางถูกทำลาย</h2>
-      <p class="sub">หมู่บ้านของคุณอยู่รอดได้ <b>${w.day}</b> วัน · ปราบศัตรู <b>${w.stats.kills}</b> ตัว · ชาวบ้าน <b>${w.villagers.length}</b> คน</p>
+      <p class="sub">หมู่บ้านของคุณอยู่รอดได้ <b>${esc(w.day)}</b> วัน · ปราบศัตรู <b>${esc(w.stats.kills)}</b> ตัว · ชาวบ้าน <b>${esc(w.villagers.length)}</b> คน</p>
       <div class="row"><button class="btn big" data-m="new">เริ่มหมู่บ้านใหม่</button></div>`);
-    this.modalButtons();
   }
 }
 

@@ -25,7 +25,9 @@ const hud = new Hud(document.getElementById('hud'), {
   },
 });
 game.registry.set('hud', hud);
-game.registry.set('hadSave', !!loadSave());
+const ls = loadSave();
+game.registry.set('hadSave', !!ls.w);
+game.registry.set('loadInfo', ls);
 game.scene.add('play', PlayScene, true);
 
 Object.assign(window, { game });

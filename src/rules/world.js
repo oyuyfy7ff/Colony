@@ -5,8 +5,8 @@ import {
 } from './config.js';
 import { bfs, flowField, downhill } from './path.js';
 import { planNight } from './waves.js';
+import { parseSave } from './save.js';
 
-export const SAVE_VERSION = 2;
 const CYCLE = DAY_LEN + NIGHT_LEN;
 
 // ---------- random ----------
@@ -37,7 +37,7 @@ function valueNoise(seed, scale) {
 // ---------- creation ----------
 export function createWorld(seed = (Math.random() * 1e9) | 0) {
   const w = {
-    v: SAVE_VERSION, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
+    v: 2, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
     stock: { wood: 30, stone: 10, food: 20 }, focus: 'auto',
     terrain: new Array(MAP_W * MAP_H).fill(T_GRASS), nodes: {},
     buildings: [], villagers: [], enemies: [], shots: [], spawnQueue: [],
@@ -548,15 +548,6 @@ function stepShots(w, dt) {
   });
 }
 
-// ---------- save / load ----------
-export function serialize(w) {
-  const { _flowDirty, ...rest } = w;
-  return JSON.stringify({ ...rest, events: [] });
-}
-export function deserialize(json) {
-  const w = JSON.parse(json);
-  if (!w || w.v !== SAVE_VERSION) return null;
-  w.events = [];
-  rebuild(w);
-  return w;
-}
+// ---------- save / load: see save.js ----------
+export { serializeWorld as serialize } from './save.js';
+export function deserialize(json) { return parseSave(json).w || null; }

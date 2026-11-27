@@ -11,7 +11,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); 
 #game { position: fixed; inset: 0; }
 #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 img { image-rendering: pixelated; }
-#hud { position: fixed; inset: 0; pointer-events: none; font-size: clamp(11px, 2.1vh + 0.4vw, 16px); }
+#hud { position: fixed; inset: 0; pointer-events: none; font-size: clamp(13px, 2.1vh + 0.4vw, 17px); }
 #hud > * { pointer-events: auto; }
 #hud .toasts { pointer-events: none; }
 .hidden { display: none !important; }
@@ -40,6 +40,21 @@ img { image-rendering: pixelated; }
   background-image: linear-gradient(90deg, #ffcd75 0 61%, #ef7d57 61% 71.4%, #29366f 71.4% 100%); opacity: .55; position: relative; }
 .sunbar i { display: block; height: 100%; background: rgba(255,255,255,.9); width: 0; border-right: 2px solid #fff; }
 .btns { display: flex; gap: 4px; }
+.dayrow { display: flex; gap: 8px; justify-content: center; align-items: baseline; }
+.fed { font-size: .8em; opacity: .9; }
+.raid { display: flex; align-items: center; gap: 3px; justify-content: center; margin-top: 3px; font: inherit; font-size: .8em;
+  color: var(--text); background: rgba(177, 62, 83, .35); border: 1px solid var(--red); border-radius: 4px; padding: 2px 6px;
+  cursor: pointer; min-height: 26px; width: 100%; flex-wrap: wrap; }
+.raid img { height: 1.2em; width: auto; }
+.tag { border-radius: 3px; padding: 0 4px; font-weight: 700; }
+.tag.spike { background: var(--red); } .tag.calm { background: #257179; }
+.cost .short { color: #ff8a8a; font-weight: 800; text-decoration: underline wavy; }
+.sets { display: grid; gap: 10px; text-align: left; margin: 6px 0 14px; min-width: min(80vw, 360px); }
+.set { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.set input[type=range] { width: 55%; accent-color: var(--gold); height: 32px; }
+.set input[type=checkbox] { width: 26px; height: 26px; accent-color: var(--gold); }
+.note { background: rgba(255, 205, 117, .15); border-left: 4px solid var(--gold); padding: 6px 10px; text-align: left; border-radius: 4px; }
+.btn:focus-visible, .bbtn:focus-visible, .raid:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
 .toasts { position: absolute; top: calc(52px + var(--sat)); left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 4px; width: min(90vw, 520px); }

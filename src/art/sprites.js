@@ -127,6 +127,26 @@ const GOBLIN = [
   '..keknnnkek.',
   '...kknnnkk..',
 ];
+const BAT_A = [
+  'k..........k',
+  'kk........kk',
+  'kbk.kkkk.kbk',
+  'kbbkbbbbkbbk',
+  '.kbbrbbrbbk.',
+  '..kbbbbbbk..',
+  '...kwkkwk...',
+  '....k..k....',
+];
+const BAT_B = [
+  '............',
+  '....kkkk....',
+  '...kbbbbk...',
+  'kkkbrbbrbkkk',
+  'kbbbbbbbbbbk',
+  '.kbkbbbbkbk.',
+  '..k.kwwk.k..',
+  '.....kk.....',
+];
 const GOB_A = ['...kNk.kNk..', '...kk...kk..'];
 const GOB_B = ['....kNNNk...', '....kkkkk...'];
 const HOUSE = [
@@ -307,6 +327,8 @@ export function makeTextures(textures) {
     add(`vill${i}_1`, fromRows([...VILLAGER, ...LEGS_B], { c, 'к': 'k' }));
   });
   add('slime', fromRows(SLIME));
+  add('bat_0', fromRows(BAT_A));
+  add('bat_1', fromRows(BAT_B));
   add('goblin_0', fromRows([...GOBLIN, ...GOB_A], { 'к': 'k' }));
   add('goblin_1', fromRows([...GOBLIN, ...GOB_B], { 'к': 'k' }));
   add('ic_wood', fromRows(ICON_WOOD));
@@ -314,11 +336,21 @@ export function makeTextures(textures) {
   add('ic_food', fromRows(ICON_FOOD));
 }
 
+// Every generated texture as a canvas, for the asset QA export (tools/export-sprites.cjs).
+export function allSprites() {
+  const out = {};
+  const fake = { exists: () => false, remove() {}, addCanvas: (k, cv) => { out[k] = cv; } };
+  makeTextures(fake);
+  delete out.glow; // soft light gradient, not pixel art
+  return out;
+}
+
 // Data-URLs scaled up crisply, for the HTML HUD.
 export function iconURL(name, scale = 4) {
   const src = {
     wood: fromRows(ICON_WOOD), stone: fromRows(ICON_STONE), food: fromRows(ICON_FOOD), pop: fromRows(ICON_POP),
     house: fromRows(HOUSE), farm: farm(), tower: tower(), wall: wall(),
+    slime: fromRows(SLIME), goblin: fromRows([...GOBLIN, ...GOB_A], { 'к': 'k' }), bat: fromRows(BAT_A),
   }[name];
   const cv = document.createElement('canvas');
   cv.width = src.width * scale; cv.height = src.height * scale;
