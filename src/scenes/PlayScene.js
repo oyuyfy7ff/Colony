@@ -104,10 +104,18 @@ export default class PlayScene extends Phaser.Scene {
     this.syncAll();
   }
 
+  // after a rotation: snap the camera back onto the player (or the hall)
+  recenter() {
+    const cam = this.cameras.main, P = this.w.player, h = hallOf(this.w);
+    const x = P ? P.x * TILE : (h.x + 1) * TILE, y = P ? P.y * TILE - 8 : (h.y + 1) * TILE;
+    this.camGoal = null; this.fling.vx = this.fling.vy = 0;
+    cam.centerOn(x, y);
+  }
   onResize() {
     this.cameras.main.setSize(this.scale.width, this.scale.height);
     this.setZoom(this.baseZoom());
     this.layoutLight();
+    this.recenter();
   }
   layoutLight() {
     const cam = this.cameras.main;

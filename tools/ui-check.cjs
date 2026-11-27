@@ -146,9 +146,20 @@ async function freeTileScreen(page, type) {
   // roads: tap and drag to paint
   await pick(page, 'road');
   const r0 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.stock.stone }));
-  const rt = await freeTileScreen(page, 'wall');
+  // a strip of 4 free tiles in a row on screen, so the drag only crosses open ground
+  const rt = await W(page, () => {
+    const s = game.scene.getScene('play'), w = s.w, cam = s.cameras.main, cr = document.querySelector('#game canvas').getBoundingClientRect(), k = cr.width / cam.width;
+    const v = cam.worldView;
+    for (let y = Math.ceil(v.y / 16) + 3; y < (v.bottom / 16) - 4; y++) for (let x = Math.ceil(v.x / 16) + 4; x < (v.right / 16) - 8; x++) {
+      if (![0, 1, 2, 3].every((d) => colonyRules.canRoad(w, x + d, y))) continue;
+      const sx = cr.left + (x * 16 + 8 - v.x) * cam.zoom * k, sy = cr.top + (y * 16 + 8 - v.y) * cam.zoom * k;
+      const el = document.elementFromPoint(sx, sy), el2 = document.elementFromPoint(sx + 3.5 * 16 * cam.zoom * k, sy);
+      if (el && el.tagName === 'CANVAS' && el2 && el2.tagName === 'CANVAS') return { sx, sy, step: 16 * cam.zoom * k };
+    }
+    return null;
+  });
   await page.mouse.move(rt.sx, rt.sy); await page.mouse.down();
-  for (let k = 1; k <= 6; k++) await page.mouse.move(rt.sx + k * 9, rt.sy, { steps: 2 });
+  for (let k = 1; k <= 6; k++) await page.mouse.move(rt.sx + (k * rt.step) / 2, rt.sy, { steps: 2 });
   await page.mouse.up();
   await wait(page, 700);
   const r1 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.stock.stone }));
@@ -332,6 +343,26 @@ async function freeTileScreen(page, type) {
   ({ ctx, page } = await open(browser, { ...devices['Pixel 7'] }));
   ok('portrait phone asks to rotate', await W(page, () => getComputedStyle(document.getElementById('rotate')).display !== 'none'));
   await shot(page, 'portrait');
+  // rotate the phone: the rotate screen goes away, the game resizes and the camera is on the player
+  await page.setViewportSize({ width: 915, height: 412 });
+  await wait(page, 1500);
+  ok('after rotating to landscape the rotate screen is gone', await W(page, () => getComputedStyle(document.getElementById('rotate')).display === 'none'));
+  ok('after rotating the canvas fills the landscape screen', await W(page, () => { const r = document.querySelector('#game canvas').getBoundingClientRect(); return r.width >= innerWidth - 2 && r.height >= innerHeight - 2 && game.scale.width > game.scale.height; }));
+  await page.locator('[data-m=start]').tap();
+  await wait(page, 300);
+  ok('after rotating the game starts and the player is on screen', await W(page, () => { const s = game.scene.getScene('play'); return !s.paused && s.cameras.main.worldView.contains(s.w.player.x * 16, s.w.player.y * 16); }));
+  await shot(page, 'rotated');
+  // rotate back and forth again, then upright with the skip button ("start" went fullscreen: leave it so the test can resize)
+  await W(page, () => document.fullscreenElement && document.exitFullscreen());
+  await wait(page, 300);
+  await page.setViewportSize({ width: 412, height: 839 });
+  await wait(page, 800);
+  await page.locator('#rotate-skip').tap();
+  ok('"play anyway" closes the rotate screen even when the page stays upright', await W(page, () => getComputedStyle(document.getElementById('rotate')).display === 'none'));
+  await page.setViewportSize({ width: 915, height: 412 });
+  await wait(page, 1500);
+  ok('second rotation still fits and keeps playing', await W(page, () => { const r = document.querySelector('#game canvas').getBoundingClientRect(); const s = game.scene.getScene('play'); return r.width >= innerWidth - 2 && s.cameras.main.worldView.contains(s.w.player.x * 16, s.w.player.y * 16); }));
+  ok('no errors while rotating', page.errors.length === 0, page.errors.join(' | '));
   await ctx.close();
 
   for (const [name, opts] of [['iphone-landscape', { ...devices['iPhone 13 landscape'] }], ['desktop', { viewport: { width: 1280, height: 720 } }], ['ultrawide', { viewport: { width: 2560, height: 1080 } }]]) {

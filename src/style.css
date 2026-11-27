@@ -170,7 +170,9 @@ img { image-rendering: pixelated; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
 }
-@media (orientation: portrait) and (max-width: 900px) { #rotate { display: flex; } }
+#rotate.show { display: flex; }
+#rotate .small { font-size: 14px; opacity: .75; margin: 18px 0 10px; }
+#rotate-skip { font: inherit; font-size: 18px; font-weight: 700; color: var(--text); background: var(--wood); border: 2px solid var(--ink); border-radius: 8px; padding: 10px 22px; min-height: 48px; cursor: pointer; }
 
 /* ---------- joystick, action button, orders ---------- */
 .joy { width: 8.6em; height: 8.6em; border-radius: 50%; position: relative; touch-action: none;
