@@ -68,3 +68,39 @@ export function downhill(dist, x, y, passable) {
   }
   return best;
 }
+
+// Dijkstra with per-tile entry cost, so villagers prefer roads and worn paths (cheaper tiles).
+// Same corner rule and output as bfs (tiles after the start).
+export function dijkstra(sx, sy, passable, cost, isGoal) {
+  const N = MAP_W * MAP_H, start = sy * MAP_W + sx;
+  const dist = new Float32Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1);
+  const heap = [[0, start]];
+  dist[start] = 0;
+  const push = (e) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last; let i = 0;
+      for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; }
+    }
+    return top;
+  };
+  while (heap.length) {
+    const [d, i] = pop();
+    if (d > dist[i]) continue;
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    if (isGoal(x, y)) {
+      const path = [];
+      for (let c = i; c !== start; c = prev[c]) path.push({ x: c % MAP_W, y: (c / MAP_W) | 0 });
+      return path.reverse();
+    }
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H || !passable(nx, ny)) continue;
+      if (dx && dy && (!passable(x + dx, y) || !passable(x, y + dy))) continue;
+      const ni = ny * MAP_W + nx, nd = d + cost(nx, ny) * (dx && dy ? 1.414 : 1);
+      if (nd < dist[ni]) { dist[ni] = nd; prev[ni] = i; push([nd, ni]); }
+    }
+  }
+  return null;
+}

@@ -1,10 +1,10 @@
 // Save file handling (save-systems skill): plain JSON data, an integer version with step-by-step
 // migrations, a .bak of the previous good save, defensive loading. Storage is injected so the
 // same code runs on localStorage in the game and on a Map in tests.
-import { MAP_W, MAP_H } from './config.js';
-import { rebuild, previewNight } from './world.js';
+import { MAP_W, MAP_H, NAMES } from './config.js';
+import { rebuild, previewNight, assignHomes } from './world.js';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SAVE_KEY = 'pixel-colony-save';
 
 // v -> v+1, pure functions. Keep every one forever: deleting one strands that version's saves.
@@ -18,6 +18,14 @@ export const MIGRATIONS = {
     for (const s of d.spawnQueue || []) s.hpMul = s.hpMul ?? 1;
     return d;
   },
+  2: (d) => {
+    // v3 added village life: names, homes, worn paths, roads and growing trees
+    d.wear = new Array(MAP_W * MAP_H).fill(0);
+    d.road = new Array(MAP_W * MAP_H).fill(0);
+    (d.villagers || []).forEach((v, i) => Object.assign(v, { name: v.name || NAMES[i % NAMES.length], home: 0, emote: null, sit: false, pause: 0 }));
+    for (const k in d.nodes || {}) d.nodes[k].grow = d.nodes[k].grow ?? 2;
+    return d;
+  },
 };
 
 export function serializeWorld(w) {
@@ -29,7 +37,8 @@ export function validate(d) {
   const ok = d && Array.isArray(d.terrain) && d.terrain.length === MAP_W * MAP_H
     && Array.isArray(d.buildings) && d.buildings.some((b) => b.type === 'hall')
     && Array.isArray(d.villagers) && d.stock && ['wood', 'stone', 'food'].every((k) => Number.isFinite(d.stock[k]))
-    && Number.isInteger(d.day) && d.day >= 1;
+    && Number.isInteger(d.day) && d.day >= 1
+    && Array.isArray(d.wear) && d.wear.length === MAP_W * MAP_H && Array.isArray(d.road) && d.road.length === MAP_W * MAP_H;
   if (!ok) throw new Error('invalid save');
 }
 
@@ -46,6 +55,7 @@ export function parseSave(json) {
   } catch { return { error: 'corrupt' }; }
   d.events = [];
   rebuild(d);
+  assignHomes(d);
   if (!d.nextWave || d.nextWave.day !== d.day) previewNight(d);
   return { w: d };
 }

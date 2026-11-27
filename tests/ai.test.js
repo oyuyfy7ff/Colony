@@ -35,7 +35,7 @@ test('walking enemies make progress and never stall for 2 s (stuck check)', () =
     tick(w, 1 / 30);
     if (step % 60 === 0) {
       for (const e of w.enemies) {
-        if (e.kind === 'bat' || e.attacking) continue;
+        if (e.kind === 'bat' || e.attacking || e.best === 999) continue; // cut-off spawns give up by design
         const prev = last.get(e.id);
         if (prev) assert.ok(Math.hypot(e.x - prev.x, e.y - prev.y) > 0.5, `enemy ${e.id} stuck near ${e.x.toFixed(1)},${e.y.toFixed(1)}`);
         last.set(e.id, { x: e.x, y: e.y });

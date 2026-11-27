@@ -39,3 +39,15 @@ export const FED_BONUS = 1.25; // buff-model needs: a fed village works faster, 
 
 export const GROW_EVERY = 20; // seconds between births
 export const GROW_FOOD = 10;
+
+// Village life (user feedback: villagers should live a day, not just stand)
+export const LUNCH_START = 46;   // seconds into the day: villagers rest and chat in the plaza
+export const LUNCH_END = 56;
+export const HOUSE_BEDS = 2;     // villagers that live in one house; the hall sleeps 3
+export const ROAD_COST = { stone: 1 };
+export const ROAD_SPEED = 1.5;   // walking speed on a road
+export const PATH_SPEED = 1.15;  // on a worn dirt path
+export const WEAR_PATH = 24;     // footsteps before grass wears into a dirt path
+export const TREE_GROW = [25, 55]; // seconds for a sapling to become young, then full grown
+export const NAMES = ['สมชาย', 'มาลี', 'บุญมี', 'ดาว', 'แก้ว', 'ทองดี', 'จันทร์', 'ปิ่น', 'ก้อง', 'น้ำฝน', 'ใบเตย', 'ภูมิ',
+  'ขวัญ', 'ต้นกล้า', 'ฟ้า', 'เมฆ', 'นิด', 'หนึ่ง', 'ส้ม', 'พลอย', 'บัว', 'ข้าวหอม', 'เก่ง', 'อิ่ม'];
