@@ -1,38 +1,47 @@
 # Pixel Colony — art direction brief
 
-Made with the `create-game-assets` skill. All art is drawn in code (`src/art/sprites.js`); there are no image files.
+Made with the `create-game-assets` skill. All art is drawn in code; there are no image files and
+no image generation. Updated for the cozy village look (warm greens, sandy paths, detailed
+cottages, branching trees, joystick player).
 
 ## Technical frame
 | | |
 |---|---|
 | Engine | Phaser 4.2, WebGL, `pixelArt: true` (nearest filtering, no mipmaps, rounded camera) |
 | View | Top-down 3/4, light from the upper left |
-| Virtual screen | 270 px tall, width follows the phone's aspect (Scale.EXPAND); zoom 1–3 |
-| Grid | 16×16 px tiles; units 10–12 px wide, standing on the tile's bottom centre (anchor bottom-centre) |
-| Palette | Sweetie 16 plus 10 extra entries for skin, wood, purple slime, deep greens and the grass checker (`PAL`, 26 colours). No off-palette pixels |
-| Outline | 1 px `#1a1c2c` on every sprite except particles, shadows, terrain |
-| Alpha | Hard 0/255 only, except the drop shadow (28 % black) and the light glow |
+| Scaling | The canvas holds the art 1:1; each art pixel is shown as a whole number of device pixels (about 200 art pixels from top to bottom of the screen). Camera zoom is 1 or 2, never fractional |
+| Grid | 16x16 px tiles. Units 12 px wide and 17-19 px tall; houses, farms and the hall cover 2x2 tiles (32 px wide, 34-44 px tall); trees 32x40 (small 22x28). Anchor bottom-centre |
+| Atlas | Every sprite is packed into one 256 px wide atlas texture `A` at boot (`src/art/sprites.js`) |
+| Palette | Sweetie 16 roles plus warm grass, leaf, blossom, autumn, wood, sand and wall ramps (`COZY` in `src/art/cozy-art.js`). `tools/palette-check.mjs` fails on any off-palette pixel |
+| Outline | 1 px dark outline on characters, buildings, trees and props (darker hue of the object for foliage) |
+| Alpha | Hard 0/255. Soft alpha only for shadows and the light glow |
 
 ## Visual system
-- **Shape language:** round, chunky, friendly. Villagers and slimes have big heads and bodies; buildings have readable roofs.
-- **Value structure:** characters are lighter or more saturated than the grass so they read at 1× zoom. Enemies use purple and dark green, colours the villagers never wear.
-- **Palette roles:** red/orange = roofs and danger; yellow = light and warm windows; blue-grey = stone; browns = wood; purple = enemies.
-- **Motion:** 2-frame walks, squash bounce for slimes, wing flaps for bats. No sub-pixel motion on sprites; the camera rounds pixels.
+- **Shape language:** round and friendly. Trees: tapering trunk forking into branches, leaf clusters at the tips with gaps between them; never a single solid blob.
+- **Value structure:** characters are brighter than the grass. Enemies are purple or dark green, colours villagers never wear. The player alone wears a gold tunic and teal hat.
+- **Palette roles:** red, green and blue roofs; cream, rose and sky walls; yellow for light; warm grey stone; browns for wood; sand for paths.
+- **Detail density:** grass stays calm (few blades, soft zones, small lush clumps) so characters and buildings read first.
+- **Motion:** 2-frame walks, 1 px canopy sway, squash bounce for slimes, wing flaps for bats.
 
-## Families
+## Families and variety
 | Family | Members | Locks |
 |---|---|---|
-| Villagers | 4 shirt colours × 2 walk frames | the same rows; only the shirt colour changes |
-| Enemies | slime, goblin ×2, bat ×2 | outline, size 12 px wide, purple/green roles |
-| Buildings | hall 32×34, house, farm, wall 16×16, tower 16×28, construction site | stone `s/S/D`, wood `n/N`, roof `r/o` |
-| Nature | tree, rock, bush (with and without berries) | ground shadow baked in the base row |
-| HUD icons | wood, stone, food, pop (6×6, scaled ×2–4 in the HUD) | same palette roles as the world |
+| Player | hero, 2 walk frames | unique outfit |
+| Villagers | 24 looks (3 skin tones, 5 hair colours, 4 hair styles incl. bun and hat, 6 shirts, 3 trousers) x walk/sit | same body rows |
+| Houses | 9 looks: cottage, log cabin, townhouse x roof and wall colours | 2x2, door at the front |
+| Trees | round, deep, small, pine, blossom, apple, autumn, golden; 10 crown shapes and a random flip per tree | trunk + branches + clusters |
+| Fields | tomato/carrot, wheat, cabbage/pumpkin | fenced, gate at the front |
+| Props | well, sign, bench, lamp, barrel, crate, logs, stump, mailbox, hay, fence, flower bed, shrub, 3 rock shapes | 1 px outline |
 
 ## Checks (run again after any art change)
 ```bash
 npm run dev -- --port 5173 &
 node tools/export-sprites.cjs out/sprites
-python3 .claude/skills/create-game-assets/scripts/asset_report.py out/sprites/*.png --require-alpha --max-colors 16 --json
-python3 .claude/skills/create-game-assets/scripts/build_preview_sheet.py out/sprites/*.png --out out/contact.png --columns 8 --cell-size 96
+S=.claude/skills/create-game-assets/scripts
+# buildings: alpha + at most 32 colours; solid shapes (digits, dust, firefly, ripples, crate) have no
+# transparent pixel by design; everything else: alpha + at most 24 colours
+python3 $S/asset_report.py out/sprites/<family>.png --require-alpha --max-colors 24 --json
+python3 $S/build_preview_sheet.py out/sprites/*.png --out out/contact.png --columns 10 --cell-size 96
 node tools/palette-check.mjs out/sprites
 ```
+Last run 2026-11-27: 393 sprites, all checks pass, palette check ok.
