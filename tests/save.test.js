@@ -74,3 +74,21 @@ test('save is plain data (no functions, no derived caches)', () => {
   const json = s.getItem(SAVE_KEY);
   assert.ok(!json.includes('_flow') && !json.includes('"_b"'));
 });
+
+test('v3 save: 1x1 houses packed side by side migrate to 2x2 without overlapping (one is refunded)', () => {
+  const w = createWorld(5);
+  const h = w.buildings[0];
+  const d = JSON.parse(JSON.stringify({ ...w, events: [] }));
+  d.v = 3;
+  // two old 1x1 houses next to each other above the hall: as 2x2 they would overlap
+  d.buildings.push({ id: 9001, type: 'house', x: h.x - 3, y: h.y - 4, hp: 80, done: true, progress: 4, cd: 0, prod: 0 });
+  d.buildings.push({ id: 9002, type: 'house', x: h.x - 2, y: h.y - 4, hp: 80, done: true, progress: 4, cd: 0, prod: 0 });
+  for (const [x, y] of [[h.x - 3, h.y - 4], [h.x - 2, h.y - 4], [h.x - 1, h.y - 4], [h.x - 3, h.y - 3], [h.x - 2, h.y - 3], [h.x - 1, h.y - 3]]) d.terrain[y * 48 + x] = 0;
+  const wood = d.stock.wood;
+  const r = parseSave(JSON.stringify(d));
+  assert.ok(r.w, r.error);
+  const houses = r.w.buildings.filter((b) => b.type === 'house');
+  assert.equal(houses.length, 1);
+  assert.equal(r.w.stock.wood, wood + 20, 'the second house was refunded');
+  assert.ok(Object.values(r.w.nodes).filter((n) => n.t === 'tree').every((n) => n.style), 'every tree has a look');
+});

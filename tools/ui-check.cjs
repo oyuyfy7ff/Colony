@@ -201,8 +201,14 @@ async function freeTileScreen(page, type) {
   ok('demolish removes the wall and closes the panel', await W(page, () => !game.scene.getScene('play').w.buildings.some((b) => b.type === 'wall') && document.querySelector('[data-info]').classList.contains('hidden')));
 
   // focus buttons
+  await page.locator('[data-focustoggle]').tap();
+  ok('work focus menu opens', await W(page, () => !document.querySelector('[data-focusopts]').classList.contains('hidden')));
+  await wait(page, 400);
+  await shot(page, 'focus-menu');
   await page.locator('[data-focus=stone]').tap();
+  ok('choosing a focus closes the menu and shows it on the button', await W(page, () => document.querySelector('[data-focusopts]').classList.contains('hidden') && document.querySelector('[data-focuslabel]').textContent === 'หิน'));
   ok('work focus switches to stone', await W(page, () => game.scene.getScene('play').w.focus === 'stone' && document.querySelector('[data-focus=stone]').classList.contains('active')));
+  await page.locator('[data-focustoggle]').tap();
   await page.locator('[data-focus=auto]').tap();
 
   // home and raid buttons move the camera

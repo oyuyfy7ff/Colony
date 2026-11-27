@@ -87,6 +87,11 @@ img { image-rendering: pixelated; }
 .seg { font: inherit; font-size: .9em; font-weight: 700; color: var(--text); background: #2a1f1b; border: 2px solid transparent;
   border-radius: 6px; min-height: 38px; padding: 2px 8px 2px 4px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .seg img { width: 1.4em; height: 1.4em; }
+.focusopts { display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255, 205, 117, .2); margin-bottom: 2px; animation: rise .18s ease-out; }
+.seg.cur { background: transparent; min-height: 44px; }
+.seg.cur span { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+.seg.cur small { font-size: max(11.5px, .85em); font-weight: 400; color: var(--dim); }
+.seg.cur.open { border-color: var(--paper); }
 .seg.active { background: var(--paper); color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 2px rgba(255, 205, 117, .35); }
 .buildwrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .buildbtn { min-height: 52px; padding: .3em .9em; font-size: 1.05em; background: var(--wood2); box-shadow: inset 0 -4px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.2), 0 0 0 2px rgba(255,205,117,.35); }

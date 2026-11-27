@@ -52,8 +52,11 @@ export class Hud {
       </div>
       <div class="bottom">
         <div class="focus" role="group" aria-label="งานหลักของชาวบ้าน">
-          <div class="ptitle">งานหลัก</div>
-          ${[['auto', 'อัตโนมัติ', 'auto'], ['wood', 'ไม้', 'wood'], ['stone', 'หิน', 'stone'], ['food', 'อาหาร', 'food']].map(([f, label, ic]) => `<button class="seg" data-focus="${f}"><img src="${iconURL(ic, 3)}" alt="">${label}</button>`).join('')}
+          <div class="focusopts hidden" data-focusopts>
+            <div class="ptitle">งานหลัก</div>
+            ${[['auto', 'อัตโนมัติ', 'auto'], ['wood', 'ไม้', 'wood'], ['stone', 'หิน', 'stone'], ['food', 'อาหาร', 'food']].map(([f, label, ic]) => `<button class="seg" data-focus="${f}"><img src="${iconURL(ic, 3)}" alt="">${label}</button>`).join('')}
+          </div>
+          <button class="seg cur" data-focustoggle aria-expanded="false"><img data-focusicon alt=""><span><small>งานหลัก</small><b data-focuslabel></b></span></button>
         </div>
         <div class="buildwrap">
           <div class="buildpanel hidden" data-buildpanel role="menu" aria-label="สิ่งก่อสร้าง">
@@ -96,7 +99,8 @@ export class Hud {
       this.refresh();
     });
     on('[data-cancel]', () => { this.scene.setBuild(null); this.refresh(); });
-    on('[data-focus]', (b) => { this.scene.w.focus = b.dataset.focus; this.sfx('click'); this.refresh(); });
+    on('[data-focustoggle]', () => { this.setFocusOpen(this.root.querySelector('[data-focusopts]').classList.contains('hidden')); this.sfx('click'); });
+    on('[data-focus]', (b) => { this.scene.w.focus = b.dataset.focus; this.sfx('click'); this.setFocusOpen(false); this.refresh(); });
     on('[data-demolish]', () => { this.scene.demolishSelected(); this.sfx('bad'); this.refresh(); });
     // press feedback: a short highlight on every HUD button
     this.root.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (b) { b.classList.remove('pressed'); void b.offsetWidth; b.classList.add('pressed'); } });
@@ -180,8 +184,16 @@ export class Hud {
       $('[data-modetxt]', this.el.chip).textContent = `กำลังวาง${name}`;
     }
     this.root.querySelectorAll('[data-focus]').forEach((b) => b.classList.toggle('active', s.w.focus === b.dataset.focus));
+    const FL = { auto: ['อัตโนมัติ', 'auto'], wood: ['ไม้', 'wood'], stone: ['หิน', 'stone'], food: ['อาหาร', 'food'] }[s.w.focus] || ['อัตโนมัติ', 'auto'];
+    this.root.querySelector('[data-focuslabel]').textContent = FL[0];
+    this.root.querySelector('[data-focusicon]').src = iconURL(FL[1], 3);
   }
 
+  setFocusOpen(open) {
+    this.root.querySelector('[data-focusopts]').classList.toggle('hidden', !open);
+    const t = this.root.querySelector('[data-focustoggle]');
+    t.setAttribute('aria-expanded', String(open)); t.classList.toggle('open', open);
+  }
   setPanel(open) {
     this.el.panel.classList.toggle('hidden', !open);
     this.el.menuBtn.setAttribute('aria-expanded', String(open));

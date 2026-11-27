@@ -4,7 +4,7 @@
 import { MAP_W, MAP_H, NAMES } from './config.js';
 import { rebuild, previewNight, assignHomes } from './world.js';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const SAVE_KEY = 'pixel-colony-save';
 
 // v -> v+1, pure functions. Keep every one forever: deleting one strands that version's saves.
@@ -24,6 +24,30 @@ export const MIGRATIONS = {
     d.road = new Array(MAP_W * MAP_H).fill(0);
     (d.villagers || []).forEach((v, i) => Object.assign(v, { name: v.name || NAMES[i % NAMES.length], home: 0, emote: null, sit: false, pause: 0 }));
     for (const k in d.nodes || {}) d.nodes[k].grow = d.nodes[k].grow ?? 2;
+    return d;
+  },
+  3: (d) => {
+    // v4: houses and farms grew to 2x2 tiles; trees got a saved look.
+    // A building whose new footprint hits water or another building is refunded and removed;
+    // resource nodes under a new footprint are cleared.
+    const W = MAP_W, inMap = (x, y) => x >= 0 && y >= 0 && x < W && y < MAP_H;
+    const big = new Set(['house', 'farm']), size = (b) => (big.has(b.type) || b.type === 'hall' ? 2 : 1);
+    const keep = [];
+    const taken = new Map();
+    const order = [...(d.buildings || [])].sort((a, b) => (a.type === 'hall' ? -1 : b.type === 'hall' ? 1 : 0));
+    for (const b of order) {
+      const n = size(b), tiles = [];
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) tiles.push([b.x + x, b.y + y]);
+      const ok = tiles.every(([x, y]) => inMap(x, y) && d.terrain[y * W + x] !== 1 && !taken.has(y * W + x));
+      if (!ok) { d.stock.wood += b.type === 'house' ? 20 : b.type === 'farm' ? 15 : 0; continue; }
+      for (const [x, y] of tiles) { taken.set(y * W + x, b.id); delete d.nodes[y * W + x]; if (d.road) d.road[y * W + x] = 0; }
+      if (big.has(b.type)) b.hp = Math.min(b.hp * 1.5, b.type === 'house' ? 120 : 70);
+      keep.push(b);
+    }
+    d.buildings = keep;
+    const r = () => Math.random();
+    for (const k in d.nodes || {}) if (d.nodes[k].t === 'tree' && !d.nodes[k].style) { const x = r(); d.nodes[k].style = x < 0.25 ? 'pine' : x < 0.37 ? 'blossom' : 'round'; delete d.nodes[k].pine; }
+    for (const v of d.villagers || []) if (v.hidden && !keep.some((b) => b.id === v.home)) v.home = 0;
     return d;
   },
 };

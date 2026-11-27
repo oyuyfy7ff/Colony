@@ -2,6 +2,7 @@
 // flowers, critters, smoke, emote bubbles and pixel digits. Same palette and outline rules as
 // sprites.js (see docs/art/art-direction.md).
 import { TILE, MAP_W, MAP_H, T_WATER } from '../rules/config.js';
+import { COZY } from './cozy-art.js';
 
 export const PAL2 = {
   k: '#1a1c2c', b: '#5d275d', r: '#b13e53', o: '#ef7d57', y: '#ffcd75', l: '#a7f070',
@@ -152,22 +153,24 @@ export function extraSprites(villagerRows, shirts, legsSit) {
   out.tree = rows(TREE_ROWS);
   out.tree_a = rows(shift(TREE_ROWS, 0, 8, -1));
   out.tree_b = rows(shift(TREE_ROWS, 0, 8, 1));
-  out.pine = rows(PINE_ROWS);
-  out.pine_a = rows(shift(PINE_ROWS, 0, 6, -1));
-  out.pine_b = rows(shift(PINE_ROWS, 0, 6, 1));
+  const pc = { E: COZY.leafS, e: COZY.leafD, v: COZY.leafM };
+  out.pine = rows(PINE_ROWS, pc);
+  out.pine_a = rows(shift(PINE_ROWS, 0, 6, -1), pc);
+  out.pine_b = rows(shift(PINE_ROWS, 0, 6, 1), pc);
   out.bench = rows(BENCH);
   out.lamp = rows(LAMP);
-  REED.forEach((f, i) => { out[`reed_${i}`] = rows(f); });
+  REED.forEach((f, i) => { out[`reed_${i}`] = rows(f, { e: COZY.blade, a: COZY.bladeHi }); });
   out.lily = rows(LILY);
   out.leaf = rows(LEAF);
   RIPPLE.forEach((f, i) => { out[`ripple_${i}`] = rows(f); });
-  out.sapling = rows(SAPLING);
-  out.tree_young = rows(YOUNG);
-  out.tree_young_a = rows(shift(YOUNG, 0, 5, -1));
-  out.tree_young_b = rows(shift(YOUNG, 0, 5, 1));
-  for (const c of ['w', 'y', 'q', 'o']) FLOWER(c).forEach((f, i) => { out[`flower_${c}_${i}`] = rows(f); });
+  out.sapling = rows(SAPLING, { g: COZY.leafM, l: COZY.leafL, G: COZY.leafD });
+  const yc = { g: COZY.leafM, l: COZY.leafL, G: COZY.leafD };
+  out.tree_young = rows(YOUNG, yc);
+  out.tree_young_a = rows(shift(YOUNG, 0, 5, -1), yc);
+  out.tree_young_b = rows(shift(YOUNG, 0, 5, 1), yc);
+  for (const c of ['w', 'y', 'q', 'o']) FLOWER(c).forEach((f, i) => { out[`flower_${c}_${i}`] = rows(f, { e: COZY.leafM }); });
   out.mushroom = rows(MUSHROOM);
-  TUFT.forEach((f, i) => { out[`tuft_${i}`] = rows(f); });
+  TUFT.forEach((f, i) => { out[`tuft_${i}`] = rows(f, { e: COZY.blade, a: COZY.bladeHi }); });
   out.pebble = rows(PEBBLE);
   for (const c of ['y', 'q', 'w']) BUTTERFLY(c).forEach((f, i) => { out[`bfly_${c}_${i}`] = rows(f); });
   BIRD.forEach((f, i) => { out[`bird_${i}`] = rows(f); });
@@ -204,10 +207,10 @@ export function paintGround2(world, plaza) {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   const img = ctx.createImageData(W, H), D = img.data;
-  const zone = noise(world.seed ^ 0x3333, 6), fine = noise(world.seed ^ 0x7777, 1.3), meadow = noise(world.seed ^ 0x2468, 4);
+  const zone = noise(world.seed ^ 0x3333, 6), fine = noise(world.seed ^ 0x7777, 1.3), meadow = noise(world.seed ^ 0x2468, 4), clump = noise(world.seed ^ 0x4242, 1.6);
   const water = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && world.terrain[y * MAP_W + x] === T_WATER;
   let s = world.seed | 0; const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) | 0) >>> 0) / 4294967296;
-  const put = (x, y, c) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const [R, G, B] = typeof c === 'string' ? hex(c) : c; const i = (y * W + x) * 4; D[i] = R; D[i + 1] = G; D[i + 2] = B; D[i + 3] = 255; };
+  const put = (x, y, c) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const [R, G, B] = hex(c); const i = (y * W + x) * 4; D[i] = R; D[i + 1] = G; D[i + 2] = B; D[i + 3] = 255; };
     const isPlaza = (tx, ty) => plaza.has(tx + ',' + ty);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const tx = (x / TILE) | 0, ty = (y / TILE) | 0;
@@ -216,9 +219,11 @@ export function paintGround2(world, plaza) {
       continue;
     }
     // grass: zone value + fine noise, dithered on a checkerboard at the band edges
-    // ragged (not checkered) borders: the fine noise wobbles the zone edge
+    // warm grass in soft zones (ragged edges from the fine noise), with darker lush clumps
     const v = zone(x / 16, y / 16) * 0.82 + fine(x / 16, y / 16) * 0.18;
-    put(x, y, v < 0.36 ? 'v' : v < 0.66 ? 'g' : 'A');
+    const cl = (px2, py2) => clump(px2 / 16, py2 / 16) * 0.8 + fine(px2 / 6, py2 / 6) * 0.2 > 0.71; // small soft clumps
+    if (cl(x, y)) put(x, y, cl(x, y - 1) && cl(x, y - 2) ? COZY.clump : COZY.clumpRim);
+    else put(x, y, v < 0.36 ? COZY.grassD : v < 0.66 ? COZY.grassM : COZY.grassL);
   }
   ctx.putImageData(img, 0, 0);
   const px = (x, y, c, w = 1, h = 1) => { ctx.fillStyle = PAL2[c] || c; ctx.fillRect(x, y, w, h); };
@@ -232,26 +237,27 @@ export function paintGround2(world, plaza) {
     if (isPlaza(tx, ty)) {
       // packed-earth plaza with a few worn flagstones, ragged where it meets the grass
       const edge = (dx, dy) => !isPlaza(tx + dx, ty + dy);
-      px(X, Y, 'u', TILE, TILE);
-      for (let k = 0; k < 10; k++) px(X + ((rnd() * 15) | 0), Y + ((rnd() * 15) | 0), rnd() < 0.5 ? 'n' : 'y');
-      for (let k = 0; k < 2; k++) { const fx = X + 2 + ((rnd() * 9) | 0), fy = Y + 2 + ((rnd() * 9) | 0); px(fx, fy, 'S', 5, 4); px(fx, fy, 's', 4, 3); }
-      if (edge(-1, 0)) for (let j = 0; j < TILE; j += 2) px(X, Y + j, 'g', 1 + ((rnd() * 2) | 0), 2);
-      if (edge(1, 0)) for (let j = 0; j < TILE; j += 2) { const w = 1 + ((rnd() * 2) | 0); px(X + TILE - w, Y + j, 'g', w, 2); }
-      if (edge(0, -1)) for (let i = 0; i < TILE; i += 2) px(X + i, Y, 'g', 2, 1 + ((rnd() * 2) | 0));
-      if (edge(0, 1)) for (let i = 0; i < TILE; i += 2) { const h = 1 + ((rnd() * 2) | 0); px(X + i, Y + TILE - h, 'g', 2, h); }
+      px(X, Y, COZY.sandM, TILE, TILE);
+      for (let k = 0; k < 8; k++) px(X + ((rnd() * 15) | 0), Y + ((rnd() * 15) | 0), rnd() < 0.5 ? COZY.sandL : COZY.sandD);
+      if (rnd() < 0.7) { const fx = X + 2 + ((rnd() * 8) | 0), fy = Y + 2 + ((rnd() * 8) | 0); px(fx, fy + 1, COZY.stepD, 6, 4); px(fx, fy, COZY.step, 6, 4); px(fx + 1, fy, COZY.pebL, 3, 1); }
+      const g = COZY.grassM;
+      if (edge(-1, 0)) for (let j = 0; j < TILE; j += 2) px(X, Y + j, g, 1 + ((rnd() * 3) | 0), 2);
+      if (edge(1, 0)) for (let j = 0; j < TILE; j += 2) { const w = 1 + ((rnd() * 3) | 0); px(X + TILE - w, Y + j, g, w, 2); }
+      if (edge(0, -1)) for (let i = 0; i < TILE; i += 2) px(X + i, Y, g, 2, 1 + ((rnd() * 3) | 0));
+      if (edge(0, 1)) for (let i = 0; i < TILE; i += 2) { const h = 1 + ((rnd() * 3) | 0); px(X + i, Y + TILE - h, g, 2, h); }
       continue;
     }
     // grass blades: darker strokes with a light tip, denser in lush zones
     const lush = zone(tx + 0.5, ty + 0.5);
     const blades = lush > 0.6 ? 7 : lush > 0.4 ? 4 : 2;
-    for (let k = 0; k < blades; k++) { const bx = X + ((rnd() * 15) | 0), by = Y + ((rnd() * 14) | 0); px(bx, by + 1, 'E'); px(bx, by, lush > 0.6 ? 'l' : 'e'); }
+    for (let k = 0; k < blades; k++) { const bx = X + ((rnd() * 14) | 0), by = Y + ((rnd() * 13) | 0); px(bx, by + 1, COZY.blade); px(bx + 2, by + 1, COZY.blade); px(bx + 1, by, lush > 0.6 ? COZY.bladeHi : COZY.blade); }
     // tiny meadow flowers only in meadow zones (clearings stay plain)
     if (meadow(tx, ty) > 0.68 && rnd() < 0.5) for (let k = 0; k < 3; k++) px(X + 2 + ((rnd() * 12) | 0), Y + 2 + ((rnd() * 12) | 0), ['w', 'y', 'q'][(rnd() * 3) | 0]);
     // sandy shores
-    if (water(tx, ty + 1)) { px(X, Y + 12, 'y', TILE, 4); px(X, Y + 12, 'u', TILE, 1); }
-    if (water(tx - 1, ty)) px(X, Y, 'y', 3, TILE);
-    if (water(tx + 1, ty)) px(X + 13, Y, 'y', 3, TILE);
-    if (water(tx, ty - 1)) px(X, Y, 'y', TILE, 3);
+    if (water(tx, ty + 1)) { px(X, Y + 12, COZY.sandL, TILE, 4); px(X, Y + 12, COZY.sandM, TILE, 1); }
+    if (water(tx - 1, ty)) px(X, Y, COZY.sandL, 3, TILE);
+    if (water(tx + 1, ty)) px(X + 13, Y, COZY.sandL, 3, TILE);
+    if (water(tx, ty - 1)) px(X, Y, COZY.sandL, TILE, 3);
   }
   return cv;
 }
@@ -264,15 +270,17 @@ export function paintPathTile(ctx, tx, ty, level, nb, seed) {
   if (!level) return;
   let s = (seed ^ (tx * 73856093) ^ (ty * 19349663)) | 0; const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) | 0) >>> 0) / 4294967296;
   const px = (x, y, c, w = 1, h = 1) => { ctx.fillStyle = PAL2[c] || c; ctx.fillRect(x, y, w, h); };
-  if (level === 1) { for (let k = 0; k < 6; k++) px(X + 2 + ((rnd() * 12) | 0), Y + 2 + ((rnd() * 12) | 0), 'v', 2, 1); return; } // trampled: flattened darker grass
+  if (level === 1) { for (let k = 0; k < 6; k++) px(X + 2 + ((rnd() * 12) | 0), Y + 2 + ((rnd() * 12) | 0), '#9fd060', 2, 1); return; } // trampled: flattened lighter grass
   const inset = (side) => (nb[side] >= 2 ? 0 : 2 + ((rnd() * 2) | 0));
   const l = inset('l'), r = inset('r'), t = inset('t'), b = inset('b');
   if (level === 2) {
-    px(X + l, Y + t, 'u', TILE - l - r, TILE - t - b);
-    for (let k = 0; k < 9; k++) px(X + l + ((rnd() * (TILE - l - r - 1)) | 0), Y + t + ((rnd() * (TILE - t - b - 1)) | 0), rnd() < 0.6 ? 'n' : 'y');
+    px(X + l, Y + t, COZY.sandM, TILE - l - r, TILE - t - b);
+    if (t) px(X + l, Y + t, COZY.sandL, TILE - l - r, 1);
+    if (b) px(X + l, Y + TILE - b - 1, COZY.sandD, TILE - l - r, 1);
+    for (let k = 0; k < 7; k++) { const a = X + l + ((rnd() * (TILE - l - r - 2)) | 0), c = Y + t + ((rnd() * (TILE - t - b - 2)) | 0); px(a, c, rnd() < 0.5 ? COZY.pebL : COZY.pebD, rnd() < 0.3 ? 2 : 1, 1); }
     return;
   }
-  // road: square pavers
-  px(X + l, Y + t, 'D', TILE - l - r, TILE - t - b);
-  for (let cy = Y + t + 1; cy < Y + TILE - b - 2; cy += 5) for (let cx = X + l + 1 + ((cy >> 2) & 1) * 2; cx < X + TILE - r - 2; cx += 5) { px(cx, cy, 's', 4, 4); px(cx, cy + 3, 'S', 4, 1); }
+  // road: warm cobbles set in sand
+  px(X + l, Y + t, COZY.sandD, TILE - l - r, TILE - t - b);
+  for (let cy = Y + t + 1; cy < Y + TILE - b - 2; cy += 5) for (let cx = X + l + 1 + ((cy >> 2) & 1) * 2; cx < X + TILE - r - 2; cx += 5) { px(cx, cy, COZY.step, 4, 4); px(cx, cy + 3, COZY.stepD, 4, 1); px(cx, cy, COZY.pebL, 2, 1); }
 }

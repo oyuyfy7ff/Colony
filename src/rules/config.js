@@ -22,8 +22,8 @@ export const VILLAGER_HP = 30;
 
 export const BUILDINGS = {
   hall:  { name: 'ศาลากลาง', w: 2, h: 2, hp: 400, cost: {}, build: 0, pop: 3, range: 4.5, dmg: 6, rate: 1.1 },
-  house: { name: 'บ้าน', w: 1, h: 1, hp: 80, cost: { wood: 20 }, build: 4, pop: 2 },
-  farm:  { name: 'ฟาร์ม', w: 1, h: 1, hp: 50, cost: { wood: 15 }, build: 3, foodEvery: 5 },
+  house: { name: 'บ้าน', w: 2, h: 2, hp: 120, cost: { wood: 20 }, build: 5, pop: 2 },
+  farm:  { name: 'ฟาร์ม', w: 2, h: 2, hp: 70, cost: { wood: 15 }, build: 4, foodEvery: 4 },
   tower: { name: 'หอธนู', w: 1, h: 1, hp: 150, cost: { wood: 15, stone: 15 }, build: 5, range: 5.5, dmg: 8, rate: 0.9 },
   wall:  { name: 'กำแพง', w: 1, h: 1, hp: 200, cost: { stone: 4 }, build: 1.5 },
 };

@@ -38,7 +38,7 @@ function valueNoise(seed, scale) {
 // ---------- creation ----------
 export function createWorld(seed = (Math.random() * 1e9) | 0) {
   const w = {
-    v: 3, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
+    v: 4, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
     stock: { wood: 30, stone: 10, food: 20 }, focus: 'auto',
     terrain: new Array(MAP_W * MAP_H).fill(T_GRASS), nodes: {},
     buildings: [], villagers: [], enemies: [], shots: [], spawnQueue: [],
@@ -75,12 +75,16 @@ export function createWorld(seed = (Math.random() * 1e9) | 0) {
       if (w.terrain[i] === T_GRASS && !w.nodes[i]) { w.nodes[i] = { t, amt: NODES[t].amt, regrow: 0, grow: 2 }; k++; }
     }
   }
+  for (const k in w.nodes) if (w.nodes[k].t === 'tree') w.nodes[k].style = treeStyle(w);
   addBuilding(w, 'hall', cx - 1, cy - 1, true);
   for (let k = 0; k < 3; k++) spawnVillager(w);
   rebuild(w);
   previewNight(w);
   return w;
 }
+
+// Tree looks: mostly round leafy trees, some pines, a few blossom trees.
+export function treeStyle(w) { const r = rand(w); return r < 0.25 ? 'pine' : r < 0.37 ? 'blossom' : 'round'; }
 
 // Derived lookup tables (not saved).
 export function rebuild(w) {
@@ -130,7 +134,7 @@ function spawnVillager(w) {
   const used = new Set(w.villagers.map((o) => o.name));
   const free = NAMES.filter((n) => !used.has(n));
   const name = free.length ? free[randInt(w, free.length)] : NAMES[randInt(w, NAMES.length)] + ' ' + (w.villagers.length + 1);
-  const v = { id: w.nextId++, name, x: hx + 0.5, y: hy + 0.5, hp: VILLAGER_HP, path: [], job: null, carry: null, work: 0, wait: rand(w), hidden: false, look: randInt(w, 4), face: 1, home: 0, emote: null, sit: false, pause: 0 };
+  const v = { id: w.nextId++, name, x: hx + 0.5, y: hy + 0.5, hp: VILLAGER_HP, path: [], job: null, carry: null, work: 0, wait: rand(w), hidden: false, look: randInt(w, 8), face: 1, home: 0, emote: null, sit: false, pause: 0 };
   w.villagers.push(v);
   assignHomes(w);
   return v;
@@ -231,6 +235,10 @@ export function tick(w, dt) {
     w.events.push({ type: 'warn' });
     for (const v of w.villagers) if (!v.hidden) { resetJob(v); v.sit = false; emote(w, v, 'alert', 2); }
   }
+  // lunch bell: gatherers put down their tools (builders finish the beam they are on)
+  if (!w.night && w.clock >= LUNCH_START && w.clock - dt < LUNCH_START) {
+    for (const v of w.villagers) if (!v.hidden && v.job && (v.job.kind === 'gather' || v.job.kind === 'stroll')) resetJob(v);
+  }
   if (!w.night && w.clock >= DAY_LEN) startNight(w);
   if (w.night && w.clock >= CYCLE) startDay(w);
 
@@ -322,7 +330,7 @@ function economy(w, dt) {
       if (h && Math.hypot(x - h.x, y - h.y) < 6) continue;
       if (walkable(w, x, y) && !w.villagers.some((v) => (v.x | 0) === x && (v.y | 0) === y)) {
         const t = rand(w) < 0.8 ? 'tree' : 'rock';
-        w.nodes[idx(x, y)] = t === 'tree' ? { t, amt: NODES[t].amt, grow: 0, age: 0 } : { t, amt: NODES[t].amt, grow: 2 };
+        w.nodes[idx(x, y)] = t === 'tree' ? { t, amt: NODES[t].amt, grow: 0, age: 0, style: treeStyle(w) } : { t, amt: NODES[t].amt, grow: 2 };
         w._flowDirty = true;
         w.events.push({ type: 'sprout', x, y });
         break;

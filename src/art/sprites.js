@@ -2,6 +2,7 @@
 // Palette based on Sweetie 16 (public domain).
 import { TILE, MAP_W, MAP_H, T_WATER } from '../rules/config.js';
 import { extraSprites } from './world-art.js';
+import { cozySprites, cozyIcon } from './cozy-art.js';
 
 export const PAL = {
   k: '#1a1c2c', b: '#5d275d', r: '#b13e53', o: '#ef7d57', y: '#ffcd75', l: '#a7f070',
@@ -348,7 +349,7 @@ function spriteCanvases() {
     ic_wood: fromRows(ICON_WOOD), ic_stone: fromRows(ICON_STONE), ic_food: fromRows(ICON_FOOD),
   };
   SHIRTS.forEach((c, i) => { out[`vill${i}_0`] = fromRows([...VILLAGER, ...LEGS_A], { c }); out[`vill${i}_1`] = fromRows([...VILLAGER, ...LEGS_B], { c }); });
-  return { ...out, ...extraSprites(VILLAGER, SHIRTS, LEGS_SIT) };
+  return { ...out, ...extraSprites(VILLAGER, SHIRTS, LEGS_SIT), ...cozySprites() }; // cozy art replaces same-named frames
 }
 
 // Packs all sprites into one atlas texture 'A' (shelf packing, 1px gaps) so the world draws in a
@@ -378,13 +379,14 @@ const iconCache = new Map();
 export function iconURL(name, scale = 4) {
   const ck = name + '@' + scale;
   if (iconCache.has(ck)) return iconCache.get(ck);
-  const src = {
+  let src = {
     wood: fromRows(ICON_WOOD), stone: fromRows(ICON_STONE), food: fromRows(ICON_FOOD), pop: fromRows(ICON_POP),
     house: fromRows(HOUSE), farm: farm(), tower: tower(), wall: wall(),
     slime: fromRows(SLIME), goblin: fromRows([...GOBLIN, ...GOB_A]), bat: fromRows(BAT_A),
     vill0: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[0] }), vill1: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[1] }),
     vill2: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[2] }), vill3: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[3] }),
-  }[name] || (UI[name] && fromRows(UI[name]));
+  }[name];
+  src = cozyIcon(name) || src || (UI[name] && fromRows(UI[name]));
   if (!src) throw new Error(`no icon ${name}`);
   const cv = document.createElement('canvas');
   cv.width = src.width * scale; cv.height = src.height * scale;
