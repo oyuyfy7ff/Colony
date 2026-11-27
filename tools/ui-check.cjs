@@ -244,7 +244,9 @@ async function freeTileScreen(page, type) {
   await W(page, () => { const s = game.scene.getScene('play'); s.w.clock = 83; s.speed = 2; });
   await wait(page, 1500);
   ok('dusk warning toast', await W(page, () => [...document.querySelectorAll('.toast')].some((e) => e.textContent.includes('ใกล้ค่ำ'))));
-  await wait(page, 7000);
+  // wait for the game clock to reach night (real time varies with machine load)
+  await page.waitForFunction(() => game.scene.getScene('play').w.night, null, { timeout: 30000 }).catch(() => {});
+  await wait(page, 500);
   ok('night begins with enemies', await W(page, () => { const w = game.scene.getScene('play').w; return w.night && (w.enemies.length + w.spawnQueue.length) > 0; }));
   // wait until the raid reaches the village, keep the hall in frame, then take the picture
   await W(page, () => { const s = game.scene.getScene('play'); s.speed = 1; s.focusHall(); });
