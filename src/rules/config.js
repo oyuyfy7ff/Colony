@@ -11,12 +11,12 @@ export const T_GRASS = 0;
 export const T_WATER = 1;
 
 export const NODES = {
-  tree: { gives: 'wood', amt: 25, work: 0.5 },   // seconds per unit
-  rock: { gives: 'stone', amt: 30, work: 0.7 },
-  bush: { gives: 'food', amt: 12, work: 0.4, regrow: 45 },
+  tree: { gives: 'wood', amt: 6, work: 0.5 },    // small so a tree falls after a few hits; seconds per unit
+  rock: { gives: 'stone', amt: 8, work: 0.7 },
+  bush: { gives: 'food', amt: 4, work: 0.4, regrow: 40 },
 };
 
-export const CARRY = 5;
+export const CARRY = 3;
 export const VILLAGER_SPEED = 2.4; // tiles / s
 export const VILLAGER_HP = 30;
 

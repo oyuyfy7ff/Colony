@@ -38,12 +38,14 @@ function valueNoise(seed, scale) {
 // ---------- creation ----------
 export function createWorld(seed = (Math.random() * 1e9) | 0) {
   const w = {
-    v: 5, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
+    v: 6, seed, rng: seed, time: 0, clock: 8, day: 1, night: false, warned: false,
     stock: { wood: 30, stone: 10, food: 20 }, focus: 'auto',
     terrain: new Array(MAP_W * MAP_H).fill(T_GRASS), nodes: {},
     buildings: [], villagers: [], enemies: [], shots: [], spawnQueue: [],
     nextId: 1, growT: 0, sproutT: 0, over: false,
     stats: { kills: 0, born: 0 }, events: [],
+    // every resource that enters or leaves the stock is counted here, so the play bot can prove nothing is duplicated
+    ledger: { start: { wood: 30, stone: 10, food: 20 }, mined: { wood: 0, stone: 0, food: 0 }, farmed: 0, refunded: { wood: 0, stone: 0, food: 0 }, spent: { wood: 0, stone: 0, food: 0 }, eaten: 0 },
     fed: true, nextWave: null, nextSide: 0,
     wear: new Array(MAP_W * MAP_H).fill(0), road: new Array(MAP_W * MAP_H).fill(0),
   };
@@ -76,6 +78,7 @@ export function createWorld(seed = (Math.random() * 1e9) | 0) {
     }
   }
   for (const k in w.nodes) if (w.nodes[k].t === 'tree') w.nodes[k].style = treeStyle(w);
+  w.treeCap = Object.values(w.nodes).filter((n) => n.t === 'tree').length;
   addBuilding(w, 'hall', cx - 1, cy - 1, true);
   w.player = { x: cx + 0.5, y: cy + 2.5, face: 1, cd: 0, moving: false };
   for (let k = 0; k < 3; k++) spawnVillager(w);
@@ -172,7 +175,7 @@ export function placeRoad(w, x, y) {
   if (w.over) return { ok: false, why: 'over' };
   if (!canRoad(w, x, y)) return { ok: false, why: 'blocked' };
   if (w.stock.stone < ROAD_COST.stone) return { ok: false, why: 'cost' };
-  w.stock.stone -= ROAD_COST.stone;
+  w.stock.stone -= ROAD_COST.stone; w.ledger.spent.stone += ROAD_COST.stone;
   w.road[idx(x, y)] = 1;
   w.events.push({ type: 'road', x, y });
   return { ok: true };
@@ -199,7 +202,7 @@ export function placeBuilding(w, type, x, y) {
   if (!canPlace(w, type, x, y)) return { ok: false, why: 'blocked' };
   if (!canAfford(w, type)) return { ok: false, why: 'cost' };
   const c = BUILDINGS[type].cost;
-  for (const k in c) w.stock[k] -= c[k];
+  for (const k in c) { w.stock[k] -= c[k]; w.ledger.spent[k] += c[k]; }
   const b = addBuilding(w, type, x, y, false);
   const def = BUILDINGS[type];
   for (let dy = 0; dy < def.h; dy++) for (let dx = 0; dx < def.w; dx++) w.road[idx(x + dx, y + dy)] = 0;
@@ -212,7 +215,7 @@ export function demolish(w, id) {
   const b = w.buildings.find((x) => x.id === id);
   if (!b || b.type === 'hall') return false;
   const c = BUILDINGS[b.type].cost;
-  for (const k in c) w.stock[k] += Math.floor(c[k] / 2);
+  for (const k in c) { w.stock[k] += Math.floor(c[k] / 2); w.ledger.refunded[k] += Math.floor(c[k] / 2); }
   removeBuilding(w, b);
   return true;
 }
@@ -301,7 +304,7 @@ function startDay(w) {
   // breakfast: one food each. Fed villagers work faster today; hungry ones are just slower.
   const need = w.villagers.length;
   w.fed = w.stock.food >= need;
-  if (w.fed) w.stock.food -= need;
+  if (w.fed) { w.stock.food -= need; w.ledger.eaten += need; }
   previewNight(w);
   for (const v of w.villagers) emote(w, v, w.fed ? 'note' : 'sad', 3);
   w.events.push({ type: 'day', day: w.day, fed: w.fed, plan: w.nextWave, side: w.nextSide });
@@ -312,7 +315,7 @@ function economy(w, dt) {
   for (const b of w.buildings) {
     if (b.type !== 'farm' || !b.done || w.night) continue;
     b.prod += dt;
-    if (b.prod >= BUILDINGS.farm.foodEvery) { b.prod = 0; w.stock.food++; w.events.push({ type: 'gain', x: b.x + 0.5, y: b.y, res: 'food' }); }
+    if (b.prod >= BUILDINGS.farm.foodEvery) { b.prod = 0; w.stock.food++; w.ledger.farmed++; w.events.push({ type: 'gain', x: b.x + 0.5, y: b.y, res: 'food' }); }
   }
   // bushes regrow, new trees sprout, so the map never runs dry
   for (const k in w.nodes) {
@@ -325,7 +328,8 @@ function economy(w, dt) {
     }
   }
   w.sproutT += dt;
-  if (w.sproutT > 20) {
+  const treesNow = Object.values(w.nodes).filter((n) => n.t === 'tree').length;
+  if (w.sproutT > 6 && treesNow < (w.treeCap || 200)) {
     w.sproutT = 0;
     const h = hall(w);
     for (let tries = 0; tries < 30; tries++) {
@@ -345,7 +349,7 @@ function economy(w, dt) {
   if (w.growT >= GROW_EVERY) {
     w.growT = 0;
     if (!w.night && !isDusk(w) && w.villagers.length < popCap(w) && w.stock.food >= GROW_FOOD) {
-      w.stock.food -= GROW_FOOD;
+      w.stock.food -= GROW_FOOD; w.ledger.eaten += GROW_FOOD;
       const v = spawnVillager(w);
       w.stats.born++;
       emote(w, v, 'heart', 3);
@@ -425,6 +429,11 @@ export function movePlayer(w, dx, dy, dt) {
 // What the action button would do right now (for the button label): nearest workable thing.
 export function playerTarget(w) {
   const P = w.player; if (!P) return null;
+  if (P.lock !== undefined && P.lock !== null) { // keep working the node you started on
+    const n = w.nodes[P.lock], x = P.lock % MAP_W, y = (P.lock / MAP_W) | 0;
+    if (n && n.amt > 0 && Math.hypot(x + 0.5 - P.x, y + 0.5 - P.y) < 1.8) return { kind: 'node', node: P.lock, res: NODES[n.t].gives, t: n.t };
+    return { kind: 'done' }; // it fell (or you walked away): let go of the button to start the next one
+  }
   let best = null, bd = 1.6;
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
     const x = (P.x | 0) + dx, y = (P.y | 0) + dy; if (!inMap(x, y)) continue;
@@ -442,12 +451,13 @@ export function playerTarget(w) {
 }
 export function playerAct(w) {
   const P = w.player; if (!P || w.over || P.cd > 0) return null;
-  const t = playerTarget(w); if (!t) return null;
+  const t = playerTarget(w); if (!t || t.kind === 'done') return null;
   P.cd = 0.28;
   if (t.kind === 'node') {
+    P.lock = t.node;
     const n = w.nodes[t.node];
     P.face = (t.node % MAP_W) + 0.5 < P.x ? -1 : 1;
-    n.amt--; w.stock[t.res]++;
+    n.amt--; w.stock[t.res]++; w.ledger.mined[t.res]++;
     w.events.push({ type: 'hit', node: t.node, t: n.t, player: true });
     w.events.push({ type: 'gain', x: P.x, y: P.y - 1, res: t.res, amt: 1 });
     if (n.amt <= 0) {
@@ -464,6 +474,9 @@ export function playerAct(w) {
   w.events.push({ type: 'hammer', x: b.x + def.w / 2, y: b.y + def.h });
   return t;
 }
+
+// the action button was let go: the next press may pick a new tree or rock
+export function playerRelease(w) { if (w.player) w.player.lock = null; }
 
 export function greet(w, id) {
   const v = w.villagers.find((x) => x.id === id);
@@ -627,7 +640,7 @@ function stepVillager(w, v, dt) {
     const per = NODES[n.t].work;
     if (v.work >= per) {
       v.work -= per;
-      n.amt--;
+      n.amt--; w.ledger.mined[job.res]++;
       v.carry = v.carry || { res: job.res, amt: 0 };
       v.carry.amt++;
       w.events.push({ type: 'hit', node: job.node, t: n.t });

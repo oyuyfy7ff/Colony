@@ -139,11 +139,11 @@ export class Hud {
     // action button: hold to keep working
     const act = this.root.querySelector('[data-act]');
     act.addEventListener('pointerdown', (e) => { this.actHeld = true; act.setPointerCapture(e.pointerId); this.audio.unlock(); e.stopPropagation(); });
-    for (const ev of ['pointerup', 'pointercancel']) act.addEventListener(ev, () => { this.actHeld = false; });
+    for (const ev of ['pointerup', 'pointercancel']) act.addEventListener(ev, () => { this.actHeld = false; this.scene?.releaseAct(); });
     // keyboard: WASD or arrows to walk, Space or E to work
     this.keys = new Set();
     document.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; this.keys.add(e.code); if (e.code === 'Space') e.preventDefault(); });
-    document.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    document.addEventListener('keyup', (e) => { this.keys.delete(e.code); if (e.code === 'Space' || e.code === 'KeyE') this.scene?.releaseAct(); });
     on('[data-demolish]', () => { this.scene.demolishSelected(); this.sfx('bad'); this.refresh(); });
     // press feedback: a short highlight on every HUD button
     this.root.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (b) { b.classList.remove('pressed'); void b.offsetWidth; b.classList.add('pressed'); } });
@@ -253,10 +253,10 @@ export class Hud {
   }
   // the action button shows what it will do: chop, mine, pick or build
   setAction(t) {
-    const key = !t ? 'none' : t.kind === 'build' ? 'build' : t.t;
+    const key = !t ? 'none' : t.kind === 'done' ? 'done' : t.kind === 'build' ? 'build' : t.t;
     if (key === this._act) return;
     this._act = key;
-    const [ic, txt] = { tree: ['axe', 'ตัดไม้'], rock: ['stone', 'ขุดหิน'], bush: ['food', 'เก็บผล'], build: ['hammer', 'ซ่อม/สร้าง'], none: ['hand', 'ทำงาน'] }[key];
+    const [ic, txt] = { tree: ['axe', 'ตัดไม้'], rock: ['stone', 'ขุดหิน'], bush: ['food', 'เก็บผล'], build: ['hammer', 'ซ่อม/สร้าง'], done: ['hand', 'ปล่อยปุ่ม'], none: ['hand', 'ทำงาน'] }[key] || ['hand', 'ทำงาน'];
     this.root.querySelector('[data-acticon]').src = iconURL(ic, 4);
     this.root.querySelector('[data-acttxt]').textContent = txt;
     this.root.querySelector('[data-act]').classList.toggle('ready', key !== 'none');

@@ -4,7 +4,7 @@
 import { MAP_W, MAP_H, NAMES } from './config.js';
 import { rebuild, previewNight, assignHomes } from './world.js';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 export const SAVE_KEY = 'pixel-colony-save';
 
 // v -> v+1, pure functions. Keep every one forever: deleting one strands that version's saves.
@@ -55,6 +55,16 @@ export const MIGRATIONS = {
     const h = (d.buildings || []).find((b) => b.type === 'hall');
     d.player = d.player || { x: (h ? h.x + 1 : MAP_W / 2) + 0.5, y: (h ? h.y + 3 : MAP_H / 2) + 0.5, face: 1, cd: 0, moving: false };
     for (const v of d.villagers || []) v.order = v.order || (d.focus && d.focus !== 'auto' ? d.focus : 'auto');
+    return d;
+  },
+  5: (d) => {
+    // v6: smaller trees, rocks and bushes (they fall after a few hits), a resource ledger, a tree cap
+    const MAX = { tree: 6, rock: 8, bush: 4 };
+    for (const k in d.nodes || {}) { const n = d.nodes[k]; if (MAX[n.t]) n.amt = Math.min(n.amt, MAX[n.t]); }
+    d.treeCap = Math.max(120, Object.values(d.nodes || {}).filter((n) => n.t === 'tree').length);
+    d.ledger = { start: { ...d.stock }, mined: { wood: 0, stone: 0, food: 0 }, farmed: 0, refunded: { wood: 0, stone: 0, food: 0 }, spent: { wood: 0, stone: 0, food: 0 }, eaten: 0 };
+    for (const v of d.villagers || []) if (v.carry) d.ledger.start[v.carry.res] += v.carry.amt; // goods in hand count as already owned
+    if (d.player) d.player.lock = null;
     return d;
   },
 };

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { TILE, MAP_W, MAP_H, BUILDINGS, DAY_LEN, NIGHT_LEN, WARN_TIME, WEAR_PATH, T_WATER } from '../rules/config.js';
-import { createWorld, tick, canPlace, canAfford, placeBuilding, demolish, buildingAt, placeRoad, canRoad, greet, activity, plazaSeats, hall as hallOf, movePlayer, playerAct, playerTarget, setOrder } from '../rules/world.js';
+import { createWorld, tick, canPlace, canAfford, placeBuilding, demolish, buildingAt, placeRoad, canRoad, greet, activity, plazaSeats, hall as hallOf, movePlayer, playerAct, playerTarget, setOrder, playerRelease } from '../rules/world.js';
 import { loadFrom, writeTo, clearFrom } from '../rules/save.js';
 import { makeTextures } from '../art/sprites.js';
 import { paintGround2, paintPathTile } from '../art/world-art.js';
@@ -457,6 +457,7 @@ export default class PlayScene extends Phaser.Scene {
     if (!v || v.hidden) { this.selVillager = null; this.hud.showInfo(null); return; }
     this.hud.showVillager({ name: v.name, doing: activity(this.w, v), look: v.look });
   }
+  releaseAct() { playerRelease(this.w); }
   giveOrder(ids, order) {
     const n = setOrder(this.w, ids, order);
     if (this.selVillager) this.selectVillager(this.selVillager);
@@ -764,6 +765,12 @@ export default class PlayScene extends Phaser.Scene {
       const top = b.y * TILE - (b.type === 'tower' ? 14 : b.type === 'hall' ? 4 : 2);
       if (!b.done) bar(x, top, wd, b.progress / def.build, 0xffcd75);
       else if (b.hp < def.hp) bar(x, top, wd, b.hp / def.hp, b.hp / def.hp > 0.4 ? 0x38b764 : 0xb13e53);
+    }
+    // how much is left in the tree, rock or bush the player is working
+    const lock = this.w.player && this.w.player.lock;
+    if (lock !== null && lock !== undefined && this.w.nodes[lock]) {
+      const n = this.w.nodes[lock], max = { tree: 6, rock: 8, bush: 4 }[n.t] || n.amt;
+      bar((lock % MAP_W) * TILE + 2, ((lock / MAP_W) | 0) * TILE - (n.t === 'tree' ? 26 : 4), TILE - 4, n.amt / max, 0xffcd75);
     }
     for (const e of this.w.enemies) if (e.hp < e.max) bar(e.x * TILE - 6, e.y * TILE - 12, 12, e.hp / e.max, 0xb13e53);
     this.selBox.clear();
