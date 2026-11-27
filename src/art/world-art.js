@@ -211,7 +211,9 @@ export function paintGround2(world, plaza) {
   const water = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && world.terrain[y * MAP_W + x] === T_WATER;
   let s = world.seed | 0; const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) | 0) >>> 0) / 4294967296;
   const put = (x, y, c) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const [R, G, B] = hex(c); const i = (y * W + x) * 4; D[i] = R; D[i + 1] = G; D[i + 2] = B; D[i + 3] = 255; };
-    const isPlaza = (tx, ty) => plaza.has(tx + ',' + ty);
+    // lush patches: big rounded blobs, light rim on top, dark rim below (reads as raised tall grass)
+  const cl = (px2, py2) => clump(px2 / 20, py2 / 20) * 0.85 + fine(px2 / 16, py2 / 16) * 0.15 > 0.62;
+  const isPlaza = (tx, ty) => plaza.has(tx + ',' + ty);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const tx = (x / TILE) | 0, ty = (y / TILE) | 0;
     if (water(tx, ty)) {
@@ -221,8 +223,6 @@ export function paintGround2(world, plaza) {
     // grass: zone value + fine noise, dithered on a checkerboard at the band edges
     // warm grass in soft zones (ragged edges from the fine noise), with darker lush clumps
     const v = zone(x / 16, y / 16) * 0.93 + fine(x / 16, y / 16) * 0.07;
-    // lush patches: big rounded blobs, light rim on top, dark rim below (reads as raised tall grass)
-    const cl = (px2, py2) => clump(px2 / 20, py2 / 20) * 0.85 + fine(px2 / 8, py2 / 8) * 0.15 > 0.62;
     if (cl(x, y)) put(x, y, !cl(x, y + 1) || !cl(x, y + 2) ? COZY.clumpD : !cl(x, y - 1) ? COZY.clumpRim : COZY.clump);
     else put(x, y, v < 0.36 ? COZY.grassD : v < 0.66 ? COZY.grassM : COZY.grassL);
   }
@@ -236,7 +236,7 @@ export function paintGround2(world, plaza) {
       continue;
     }
     if (isPlaza(tx, ty)) {
-      // packed-earth plaza with a few worn flagstones, ragged where it meets the grass
+      // packed-earth plaza with pebbles, ragged where it meets the grass
       const edge = (dx, dy) => !isPlaza(tx + dx, ty + dy);
       px(X, Y, COZY.sandM, TILE, TILE);
       for (let k = 0; k < 8; k++) px(X + ((rnd() * 15) | 0), Y + ((rnd() * 15) | 0), rnd() < 0.5 ? COZY.sandL : COZY.sandD);
@@ -253,7 +253,7 @@ export function paintGround2(world, plaza) {
     // grass blades: darker strokes with a light tip, denser in lush zones
     // dense little v-shaped grass marks all over; inside lush patches they are darker
     for (let k = 0; k < 5; k++) {
-      const bx = X + ((rnd() * 14) | 0), by = Y + ((rnd() * 13) | 0), inP = clump(bx / 20, by / 20) > 0.66;
+      const bx = X + ((rnd() * 14) | 0), by = Y + ((rnd() * 13) | 0), inP = cl(bx, by);
       const c = inP ? COZY.clumpD : COZY.blade;
       px(bx, by, c); px(bx + 2, by, c); px(bx + 1, by + 1, c);
       if (!inP && rnd() < 0.3) px(bx + 1, by - 1, COZY.bladeHi);

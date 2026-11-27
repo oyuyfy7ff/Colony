@@ -21,7 +21,7 @@ Phaser 4 + Vite. กติกาเกมอยู่ใน `src/rules/` (ไม
 
 ## ตรวจสอบ (จากสกิล gamedev)
 ```bash
-npm test                                        # กติกา, AI, เซฟ, game feel (24 เทสต์)
+npm test                                        # กติกา, AI, เซฟ, game feel (32 เทสต์)
 node tools/bot.mjs 20 1                         # ผู้เล่นบอทเล่นแบบ headless
 node tools/curve-spec.mjs && python3 .claude/skills/tower-defense/scripts/td_curve_check.py tools/waves.json
 npm run build && npx vite preview --port 4173 & node tools/perf.cjs 8   # p95 ต่อเฟรม

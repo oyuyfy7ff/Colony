@@ -236,6 +236,7 @@ export default class PlayScene extends Phaser.Scene {
   // a cut tree leaves a stump that stays until something grows or is built there
   addStump(node) {
     const x = node % MAP_W, y = (node / MAP_W) | 0;
+    if (this.decor.some((d) => d.frame === 'stump' && d.tx === x && d.ty === y)) return; // one stump per tile
     const img = this.add.image(x * TILE + 8, y * TILE + 14, A, 'stump').setOrigin(0.5, 1).setDepth(y * TILE + 8);
     this.decor.push({ img, tx: x, ty: y, frame: 'stump', anim: false, ph: 0 });
   }
