@@ -41,6 +41,7 @@ export class Hud {
         <div class="btns">
           <button class="btn sq" data-home aria-label="กลับไปที่ศาลากลาง">${icon('home')}</button>
           <button class="btn sq" data-speed aria-label="ความเร็ว"><img class="ic" data-speedicon src="${iconURL('play')}" alt=""><span data-speedtxt>1x</span></button>
+          <button class="btn sq${document.fullscreenEnabled ? '' : ' hidden'}" data-fs aria-label="เต็มจอ" aria-pressed="false">${icon('full')}</button>
           <button class="btn sq" data-menu aria-label="เมนู">${icon('menu')}</button>
         </div>
       </div>
@@ -85,6 +86,11 @@ export class Hud {
 
   bindings() {
     const on = (sel, fn) => this.root.querySelectorAll(sel).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.audio.unlock(); fn(b); }));
+    on('[data-fs]', () => { this.sfx('click'); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else goFullscreen(); });
+    document.addEventListener('fullscreenchange', () => {
+      const fs = !!document.fullscreenElement, b = $('[data-fs]', this.root);
+      b.classList.toggle('on', fs); b.setAttribute('aria-pressed', String(fs)); b.setAttribute('aria-label', fs ? 'ออกจากเต็มจอ' : 'เต็มจอ');
+    });
     on('[data-speed]', () => { const s = this.scene; if (!s) return; s.speed = s.speed >= 3 ? 1 : s.speed + 1; this.sfx('click'); this.clock(true); });
     on('[data-menu]', () => this.menu());
     on('[data-home]', () => { this.scene?.focusHall(); this.sfx('click'); });
