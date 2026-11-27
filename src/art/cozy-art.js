@@ -69,8 +69,20 @@ const SHAPES = {
   big: { W: 32, H: 40, base: 16, top: 22, tips: [[8, 15, 6], [24, 14, 6], [16, 9, 7], [11, 6, 4], [21, 6, 4], [5, 21, 3], [27, 20, 3]] },
   small: { W: 22, H: 28, base: 11, top: 16, tips: [[5, 11, 4], [17, 10, 4], [11, 6, 5], [8, 4, 3]] },
 };
-function tree(kind, sway, size = 'big') {
-  const S = SHAPES[size], c = cv(S.W, S.H), { px } = painter(c);
+// A seeded variant of a crown shape: tips move a little, change size, and some small ones drop out.
+function varyShape(S, seed) {
+  if (!seed) return S;
+  const h = (i, k) => hash(seed, i, k), tips = [];
+  S.tips.forEach(([x, y, r], i) => {
+    if (i >= 3 && h(i, 1) < 0.3) return;
+    const rr = Math.max(3, r + Math.round((h(i, 2) - 0.5) * 2.4));
+    tips.push([Math.min(S.W - rr - 3, Math.max(rr + 2, x + Math.round((h(i, 3) - 0.5) * 6))), Math.min(S.top - 3, Math.max(rr + 2, y + Math.round((h(i, 4) - 0.5) * 4))), rr]);
+  });
+  return { ...S, tips };
+}
+export const TREE_VARIANTS = 10;
+function tree(kind, sway, size = 'big', seed = 0) {
+  const S = varyShape(SHAPES[size], seed), c = cv(S.W, S.H), { px } = painter(c);
   const P = TREE_PAL[kind] || TREE_PAL.round;
   const off = (y) => (y < S.top - 2 ? sway : 0);
   // trunk: tapering, bark lines, root flare
@@ -102,7 +114,7 @@ function tree(kind, sway, size = 'big') {
   if (kind === 'fruit') S.tips.slice(0, 5).forEach(([cx, cy], n) => { const x = cx - 2 + ((hash(cx, n, 3) * 4) | 0), y = cy + 1 + ((hash(cy, n, 4) * 2) | 0); px(x + off(y), y, '#e0403a', 2, 2); px(x + off(y), y, '#ff8a7a'); });
   return outline(c, P[5]);
 }
-function smallTree(sway) { return tree('round', sway, 'small'); }
+
 
 // ---------- cottage: 2x2 tiles, 32x40 ----------
 const WALLS = [[COZY.wallL, COZY.wallM, COZY.wallD], ['#ffd9d0', '#f2b9ad', '#c98a7e'], ['#dcecf7', '#bcd5ea', '#8eaecb']];
@@ -344,15 +356,17 @@ function well() {
 // system that uses them keeps working).
 export function cozySprites() {
   const out = {};
-  for (const [kind, name] of [['round', 'tree'], ['blossom', 'blossom']]) {
-    out[name] = tree(kind, 0); out[name + '_a'] = tree(kind, -1); out[name + '_b'] = tree(kind, 1);
+  // every tree kind in TREE_VARIANTS shapes: frame "<name>" is shape 0, "<name>~<v>" the others
+  for (const [kind, name, size] of [['round', 'tree'], ['blossom', 'blossom'], ['fruit', 'fruit'], ['autumn', 'autumn'], ['golden', 'golden'], ['deep', 'deep'], ['round', 'small', 'small']]) {
+    for (let v = 0; v < TREE_VARIANTS; v++) {
+      const f = v ? `${name}~${v}` : name, seed = v * 7919 + name.length;
+      out[f] = tree(kind, 0, size, v && seed); out[f + '_a'] = tree(kind, -1, size, v && seed); out[f + '_b'] = tree(kind, 1, size, v && seed);
+    }
   }
   // nine house looks: three shapes, each with its own roof colour and wall colour
   const HOUSES = [() => cottage(0, 0), () => cabin(1), () => townhouse(2, 1), () => cottage(1, 2), () => cabin(0), () => townhouse(0, 0), () => cottage(2, 1), () => cabin(2), () => townhouse(1, 2)];
   HOUSES.forEach((f, i) => { out[`house_${i}`] = f(); });
   out.house = out.house_0;
-  for (const kind of ['fruit', 'autumn', 'golden', 'deep']) { out[kind] = tree(kind, 0); out[kind + '_a'] = tree(kind, -1); out[kind + '_b'] = tree(kind, 1); }
-  out.small = smallTree(0); out.small_a = smallTree(-1); out.small_b = smallTree(1);
   CROPS.forEach((_, i) => { out[`farm_${i}`] = field(i); });
   for (const k in PROPS) out[k] = prop(PROPS[k]); // props carry their own outline
   out.well = well();

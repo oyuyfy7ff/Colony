@@ -4,6 +4,7 @@ import { createWorld, tick, canPlace, canAfford, placeBuilding, demolish, buildi
 import { loadFrom, writeTo, clearFrom } from '../rules/save.js';
 import { makeTextures } from '../art/sprites.js';
 import { paintGround2, paintPathTile } from '../art/world-art.js';
+import { TREE_VARIANTS } from '../art/cozy-art.js';
 import { TIERS, Trauma, HitStop, approach } from '../feel.js';
 
 const STEP = 1 / 30;
@@ -557,6 +558,11 @@ export default class PlayScene extends Phaser.Scene {
     if (n.t === 'rock') return this.rockLook(n);
     return n.t;
   }
+  variantFrame(n, fr) { // grown leafy trees: one of TREE_VARIANTS shapes, fixed per tree
+    if (n.t !== 'tree' || !this.textures.get(A).has(fr + '~1')) return fr;
+    n.v ??= (Math.random() * TREE_VARIANTS) | 0;
+    return n.v ? `${fr}~${n.v}` : fr;
+  }
   rockLook(n) { // three rock shapes, fixed per rock
     if (n.look === undefined) n.look = (Math.random() * 3) | 0;
     return ['rock', 'rock_1', 'rock_2'][n.look];
@@ -571,12 +577,13 @@ export default class PlayScene extends Phaser.Scene {
       const fr = this.nodeFrame(n);
       if (!s) {
         const x = ((i % MAP_W) + 0.5) * TILE, y = (((i / MAP_W) | 0) + 1) * TILE;
-        s = this.add.image(x, y, A, fr).setOrigin(0.5, 1).setDepth(y);
-        s.baseX = s.x; s.base = fr;
+        s = this.add.image(x, y, A, this.variantFrame(n, fr)).setOrigin(0.5, 1).setDepth(y);
+        s.baseX = s.x; s.base = fr; s.fr = s.frame.name;
+        if (n.t === 'tree') s.setFlipX(n.flip ??= Math.random() < 0.5);
         s.shadow = this.add.image(x, y - 1, A, 'shadow_l').setDepth(y - 2).setScale(BIG_TREES.has(fr) ? 1.1 : fr === 'small' ? 0.8 : 0.6, 1);
         this.spr.nodes.set(i, s);
         s.setScale(0.2); this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.Out' });
-      } else if (s.base !== fr) { s.base = fr; s.setFrame(fr); s.shadow.setScale(BIG_TREES.has(fr) ? 1.1 : fr === 'small' ? 0.8 : 0.6, 1); }
+      } else if (s.base !== fr) { s.base = fr; s.setFrame(this.variantFrame(n, fr)); s.fr = s.frame.name; s.shadow.setScale(BIG_TREES.has(fr) ? 1.1 : fr === 'small' ? 0.8 : 0.6, 1); }
     }
     for (const [i, s] of this.spr.nodes) if (!seen.has(i)) { s.shadow.destroy(); s.destroy(); this.spr.nodes.delete(i); }
 
@@ -691,7 +698,7 @@ export default class PlayScene extends Phaser.Scene {
       if (!SWAYS.has(s.base)) continue;
       if (!view.contains(s.x, s.y - 8)) continue;
       const p = phase(s.x, s.y);
-      s.setFrame(p > 0.55 ? s.base + '_b' : p < -0.75 ? s.base + '_a' : s.base);
+      s.setFrame(p > 0.55 ? s.fr + '_b' : p < -0.75 ? s.fr + '_a' : s.fr);
       // in a strong gust a leaf sometimes drifts off a round tree (daytime only, a few at a time)
       if (p > 0.9 && (s.base === 'tree' || s.base === 'blossom' || s.base === 'autumn' || s.base === 'golden') && !this.w.night && (this.leaves || 0) < 6 && Math.random() < (s.base === 'blossom' ? 0.08 : 0.04)) this.leafFall(s.x, s.y - 20, { blossom: 0xffc6e3, autumn: 0xffa060, golden: 0xffe080 }[s.base] || 0xffffff);
     }
