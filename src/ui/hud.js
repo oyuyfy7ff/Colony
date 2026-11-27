@@ -214,7 +214,7 @@ export class Hud {
     const clockBox = this.root.querySelector('.clock').getBoundingClientRect();
     this.el.toasts.style.top = `${Math.round(clockBox.bottom + 6)}px`;
     const t = document.createElement('div');
-    t.className = `toast ${kind}`;
+    t.className = `toast t-${kind}`; // prefixed: a bare 'info' class would pick up the info card styles
     t.textContent = text;
     this.el.toasts.prepend(t);
     while (this.el.toasts.children.length > 3) this.el.toasts.lastChild.remove();

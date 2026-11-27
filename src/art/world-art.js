@@ -44,6 +44,31 @@ export const TREE_ROWS = [
   '....kNNNNNNk....',
   '.....kkkkkk.....',
 ];
+// a second tree shape so forests are not one stamp repeated
+export const PINE_ROWS = [
+  '.......kk.......',
+  '......kEek......',
+  '.....kEeeEk.....',
+  '....kEeveeEk....',
+  '.....kEeeEk.....',
+  '....kEeveeeEk...',
+  '...kEeeveeeeEk..',
+  '....kkEeeeEkk...',
+  '...kEeeveeeeEk..',
+  '..kEeeeveeeeeEk.',
+  '..kkkEeeeeeEkkk.',
+  '.....kkknkkk....',
+  '.......kNk......',
+  '......kkNkk.....',
+  '.....kNNNNNk....',
+  '......kkkkk.....',
+];
+const BENCH = ['............', '.kkkkkkkkkk.', 'knnnnnnnnnnk', 'kNNNNNNNNNNk', '.kkkkkkkkkk.', '.kNk....kNk.', '.kk......kk.'];
+const LAMP = ['.kkk.', 'kyyyk', 'kywyk', 'kyyyk', '.kkk.', '..k..', '..D..', '..D..', '..D..', '..D..', '..D..', '..D..', '.kDk.', 'kkkkk'];
+const REED = [['..n..', '..N.n', 'e.e.N', 'e.e.e', 'eeeee', '.eae.'], ['.n...', '.N..n', 'e.e.N', 'e.e.e', 'eeeee', '.eae.']];
+const LILY = ['.ggg.', 'gglgg', 'gg.gg', '.ggg.'];
+const LEAF = ['.g', 'g.'];
+const RIPPLE = [['.tt.'], ['tttt']];
 const SAPLING = ['...kk...', '..kglk..', '.kglgGk.', '..kGGk..', '...kn...', '...kn...', '..kNNk..', '...kk...'];
 const YOUNG = [
   '....kkkk....', '..kkgllgkk..', '.kglllgggGk.', 'kgllggggggGk', 'kggggggggGGk', '.kGgggggGGk.',
@@ -127,6 +152,15 @@ export function extraSprites(villagerRows, shirts, legsSit) {
   out.tree = rows(TREE_ROWS);
   out.tree_a = rows(shift(TREE_ROWS, 0, 8, -1));
   out.tree_b = rows(shift(TREE_ROWS, 0, 8, 1));
+  out.pine = rows(PINE_ROWS);
+  out.pine_a = rows(shift(PINE_ROWS, 0, 6, -1));
+  out.pine_b = rows(shift(PINE_ROWS, 0, 6, 1));
+  out.bench = rows(BENCH);
+  out.lamp = rows(LAMP);
+  REED.forEach((f, i) => { out[`reed_${i}`] = rows(f); });
+  out.lily = rows(LILY);
+  out.leaf = rows(LEAF);
+  RIPPLE.forEach((f, i) => { out[`ripple_${i}`] = rows(f); });
   out.sapling = rows(SAPLING);
   out.tree_young = rows(YOUNG);
   out.tree_young_a = rows(shift(YOUNG, 0, 5, -1));

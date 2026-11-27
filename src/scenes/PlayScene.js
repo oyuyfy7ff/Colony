@@ -140,6 +140,55 @@ export default class PlayScene extends Phaser.Scene {
       if (n.t === 'rock' && r() < 0.4) add('pebble', nb[0] * TILE + 3 + r() * 10, nb[1] * TILE + 6 + r() * 8, false);
     }
     for (const b of w.buildings) if (b.type === 'house' && b.done) this.addGarden(b, true);
+    this.setupPlaza();
+    this.setupShore(r, free);
+  }
+  // benches where villagers sit at lunch, two lamps that glow after dark. Visual only: nothing
+  // here blocks walking or building (seats stay walkable tiles in the rules).
+  setupPlaza() {
+    const w = this.w, h = hallOf(w);
+    this.lamps = [];
+    plazaSeats(w).slice(0, 4).forEach((p, i) => {
+      if (i % 2) return; // a bench every other seat, so the plaza is not lined with furniture
+      const x = p.x * TILE + 8, y = p.y * TILE + 13;
+      this.add.image(x, y, A, 'bench').setOrigin(0.5, 1).setDepth(y - 8);
+    });
+    for (const [dx, dy] of [[-2, 2], [3, 2]]) {
+      const tx = h.x + dx, ty = h.y + dy;
+      if (this.isWater(tx, ty) || w.nodes[ty * MAP_W + tx] || w._b[ty * MAP_W + tx]) continue;
+      const x = tx * TILE + 8, y = ty * TILE + 14;
+      this.add.image(x, y, A, 'lamp').setOrigin(0.5, 1).setDepth(y);
+      this.add.image(x, y + 1, A, 'shadow').setDepth(y - 2).setScale(0.6, 0.6);
+      const glow = this.add.image(x, y - 12, 'glow').setBlendMode(Phaser.BlendModes.ADD).setScale(0.9).setDepth(7001).setAlpha(0);
+      this.lamps.push(glow);
+    }
+  }
+  // reeds along the banks (in clumps, not everywhere), a few stones, lily pads near the shore
+  setupShore(r, free) {
+    const w = this.w;
+    for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
+      const wn = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => this.isWater(x + dx, y + dy));
+      if (this.isWater(x, y)) {
+        if (wn.length < 4 && r() < 0.1) {
+          const img = this.add.image(x * TILE + 3 + r() * 10, y * TILE + 4 + r() * 8, A, 'lily').setDepth(-995);
+          this.decor.push({ img, tx: x, ty: y, frame: 'lily', anim: false, ph: 0, water: true });
+        }
+        continue;
+      }
+      if (!wn.length || !free(x, y)) continue;
+      const clump = Math.sin(x * 0.9 + w.seed) + Math.cos(y * 1.3 + w.seed * 0.5) > 0.6; // clumps along the bank
+      if (clump && r() < 0.75) {
+        const [dx, dy] = wn[0];
+        for (let k = 0; k < 2 + ((r() * 2) | 0); k++) {
+          const rx = x * TILE + 8 + dx * 5 + (r() - 0.5) * 8, ry = y * TILE + 10 + dy * 4 + (r() - 0.5) * 6;
+          const img = this.add.image(Math.round(rx), Math.round(ry), A, 'reed_0').setOrigin(0.5, 1).setDepth(ry - 6);
+          this.decor.push({ img, tx: x, ty: y, frame: 'reed', anim: true, ph: r() * 6 });
+        }
+      } else if (r() < 0.08) {
+        const img = this.add.image(x * TILE + 4 + r() * 8, y * TILE + 8 + r() * 6, A, 'pebble').setOrigin(0.5, 1).setDepth(y * TILE);
+        this.decor.push({ img, tx: x, ty: y, frame: 'pebble', anim: false, ph: 0 });
+      }
+    }
   }
   // a little flower bed grows beside every finished house: the village changes as it grows
   addGarden(b, instant) {
@@ -158,7 +207,7 @@ export default class PlayScene extends Phaser.Scene {
   }
   refreshDecor() { // decor disappears under buildings, roads, nodes and worn paths
     const w = this.w;
-    for (const d of this.decor) { const i = d.ty * MAP_W + d.tx; d.img.setVisible(!(w._b[i] || w.road[i] || w.wear[i] >= WEAR_PATH || w.nodes[i])); }
+    for (const d of this.decor) { if (d.water) continue; const i = d.ty * MAP_W + d.tx; d.img.setVisible(!(w._b[i] || w.road[i] || w.wear[i] >= WEAR_PATH || w.nodes[i])); }
   }
 
   // ---------- worn paths and roads: one canvas layer, repainted per changed tile ----------
@@ -204,6 +253,14 @@ export default class PlayScene extends Phaser.Scene {
       n++;
       this.critters.sparkles.push({ img: this.add.image(x * TILE + 3 + r() * 10, y * TILE + 4 + r() * 8, A, 'sparkle_0').setDepth(-990).setAlpha(0), ph: r() * 6, sp: 0.6 + r() * 0.8 });
     }
+    // slow ripples drifting on open water
+    this.critters.ripples = [];
+    for (let tries = 0; tries < 500 && this.critters.ripples.length < 18; tries++) {
+      const x = (r() * MAP_W) | 0, y = (r() * MAP_H) | 0;
+      if (!this.isWater(x, y) || !this.isWater(x - 1, y) || !this.isWater(x + 1, y)) continue;
+      const bx = x * TILE + 8, by = y * TILE + 4 + r() * 8;
+      this.critters.ripples.push({ img: this.add.image(bx, by, A, 'ripple_0').setDepth(-991).setAlpha(0), bx, by, ph: r() * 6 });
+    }
   }
   updateCritters(dt, now, dayAmt) {
     for (const b of this.critters.bflies) {
@@ -216,6 +273,10 @@ export default class PlayScene extends Phaser.Scene {
       f.x += Math.sin((now / 1300) * f.sp + f.ph) * 6 * dt; f.y += Math.cos((now / 1700) * f.sp + f.ph) * 5 * dt;
       const blink = Math.max(0, Math.sin((now / 500) * f.sp + f.ph)) * night;
       f.glow.setPosition(f.x, f.y).setAlpha(blink * 0.8); f.dot.setPosition(Math.round(f.x), Math.round(f.y)).setAlpha(blink);
+    }
+    for (const rp of this.critters.ripples) {
+      const t = now / 2600 + rp.ph;
+      rp.img.setPosition(Math.round(rp.bx + Math.sin(t) * 6), rp.by).setFrame(Math.sin(t * 2) > 0 ? 'ripple_1' : 'ripple_0').setAlpha(0.25 + 0.2 * Math.sin(t * 1.3));
     }
     for (const s of this.critters.sparkles) {
       const v = Math.sin((now / 400) * s.sp + s.ph);
@@ -285,11 +346,14 @@ export default class PlayScene extends Phaser.Scene {
     const t = this.tileAt(p);
     if (this.buildType === 'road') {
       const ok = canRoad(this.w, t.x, t.y) && this.w.stock.stone >= 1;
+      this.ghostTile = { x: t.x, y: t.y, w: 1, h: 1, ok };
       this.ghost.setFrame('site_0').setPosition(t.x * TILE, (t.y + 1) * TILE).setVisible(true).setTint(ok ? 0xffffff : 0xff5050);
       return;
     }
     const ok = canPlace(this.w, this.buildType, t.x, t.y) && canAfford(this.w, this.buildType);
-    this.ghost.setFrame(this.buildType).setPosition(t.x * TILE, (t.y + BUILDINGS[this.buildType].h) * TILE).setVisible(true).setTint(ok ? 0xffffff : 0xff5050);
+    const def = BUILDINGS[this.buildType];
+    this.ghostTile = { x: t.x, y: t.y, w: def.w, h: def.h, ok };
+    this.ghost.setFrame(this.buildType).setPosition(t.x * TILE + (def.w * TILE - this.ghost.width) / 2, (t.y + def.h) * TILE).setVisible(true).setTint(ok ? 0xffffff : 0xff5050);
   }
   paintRoad(p) {
     const t = this.tileAt(p);
@@ -306,7 +370,10 @@ export default class PlayScene extends Phaser.Scene {
       const res = placeBuilding(this.w, this.buildType, t.x, t.y);
       this.moveGhost(p);
       if (res.ok) { this.feedback('small', (t.x + 0.5) * TILE, (t.y + 0.8) * TILE); this.hud.sfx('place'); this.hud.onEvent({ type: 'placed' }); }
-      else { this.hud.toast(res.why === 'cost' ? 'ทรัพยากรไม่พอ' : 'วางตรงนี้ไม่ได้', 'bad'); this.hud.sfx('bad'); }
+      else {
+        this.hud.toast(res.why === 'cost' ? 'ทรัพยากรไม่พอ' : 'วางตรงนี้ไม่ได้', 'bad'); this.hud.sfx('bad');
+        const gx = this.ghost.x; this.tweens.add({ targets: this.ghost, x: gx + 2, duration: 40, yoyo: true, repeat: 2, onComplete: () => { this.ghost.x = gx; } });
+      }
       this.hud.refresh();
       return;
     }
@@ -327,7 +394,7 @@ export default class PlayScene extends Phaser.Scene {
     this.buildType = type;
     this.select(null);
     if (type) { const cam = this.cameras.main; this.moveGhost({ x: cam.width / 2, y: cam.height / 2 }); }
-    else this.ghost.setVisible(false);
+    else { this.ghost.setVisible(false); this.ghostTile = null; }
   }
   focusHall() { const h = hallOf(this.w); this.camGoal = { x: (h.x + 1) * TILE, y: (h.y + 1) * TILE }; }
   focusSide(side) {
@@ -453,7 +520,7 @@ export default class PlayScene extends Phaser.Scene {
   // ---------- render sync ----------
   nodeFrame(n) {
     if (n.t === 'bush') return n.amt <= 0 ? 'bush_empty' : 'bush';
-    if (n.t === 'tree') return (n.grow ?? 2) === 0 ? 'sapling' : n.grow === 1 ? 'tree_young' : 'tree';
+    if (n.t === 'tree') return (n.grow ?? 2) === 0 ? 'sapling' : n.grow === 1 ? 'tree_young' : (n.pine ? 'pine' : 'tree');
     return n.t;
   }
   syncAll() {
@@ -463,15 +530,16 @@ export default class PlayScene extends Phaser.Scene {
       const n = w.nodes[k], i = +k;
       seen.add(i);
       let s = this.spr.nodes.get(i);
+      if (n.t === 'tree' && n.pine === undefined) n.pine = ((Math.imul(i + this.w.seed, 2654435761) >>> 0) % 100) < 30; // derived look, cheap to store
       const fr = this.nodeFrame(n);
       if (!s) {
         const x = ((i % MAP_W) + 0.5) * TILE, y = (((i / MAP_W) | 0) + 1) * TILE;
         s = this.add.image(x, y, A, fr).setOrigin(0.5, 1).setDepth(y);
         s.baseX = s.x; s.base = fr;
-        s.shadow = this.add.image(x, y - 1, A, 'shadow_l').setDepth(y - 2).setScale(fr === 'tree' ? 0.9 : 0.6, 1);
+        s.shadow = this.add.image(x, y - 1, A, 'shadow_l').setDepth(y - 2).setScale(fr === 'tree' || fr === 'pine' ? 0.9 : 0.6, 1);
         this.spr.nodes.set(i, s);
         s.setScale(0.2); this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.Out' });
-      } else if (s.base !== fr) { s.base = fr; s.setFrame(fr); s.shadow.setScale(fr === 'tree' ? 0.9 : 0.6, 1); }
+      } else if (s.base !== fr) { s.base = fr; s.setFrame(fr); s.shadow.setScale(fr === 'tree' || fr === 'pine' ? 0.9 : 0.6, 1); }
     }
     for (const [i, s] of this.spr.nodes) if (!seen.has(i)) { s.shadow.destroy(); s.destroy(); this.spr.nodes.delete(i); }
 
@@ -519,6 +587,7 @@ export default class PlayScene extends Phaser.Scene {
       s.bubble.setVisible(!!ek).setPosition(s.x, s.y - (v.carry ? 20 : 13) - Math.abs(Math.sin(now / 250))).setDepth(6800);
     });
 
+    this.separate([...this.spr.villagers.values()].filter((s) => s.visible));
     this.syncUnits(this.spr.enemies, w.enemies, (e) => (e.kind === 'slime' ? 'slime' : `${e.kind}_`), (e, s) => {
       if (e.kind === 'bat') { s.y -= 10 + Math.sin(now / 120 + e.id) * 2; s.setFrame(`bat_${((now / 110) | 0) % 2}`); }
       if (e.kind === 'slime') { const t = now / 140 + e.id; s.setScale(1 + Math.sin(t) * 0.12, 1 - Math.sin(t) * 0.12); }
@@ -565,16 +634,29 @@ export default class PlayScene extends Phaser.Scene {
     for (const [id, s] of map) if (!seen.has(id)) { s.shadow.destroy(); s.carry?.destroy(); s.bubble?.destroy(); s.destroy(); map.delete(id); }
   }
 
+  separate(list) {
+    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+      const a = list[i], b = list[j];
+      if (Math.abs(a.x - b.x) < 6 && Math.abs(a.y - b.y) < 4) {
+        const d = a.x <= b.x ? -3 : 3;
+        a.x += d; b.x -= d;
+        for (const s of [a, b]) { s.shadow.x = s.x; if (s.carry) s.carry.x = s.x; if (s.bubble) s.bubble.x = s.x; }
+      }
+    }
+  }
+
   // trees, tufts and flowers lean with a wind wave that rolls across the map (visible ones only)
   updateSway(now) {
     const view = this.cameras.main.worldView;
     const gust = 0.6 + 0.4 * Math.sin(now / 4000);
     const phase = (x, y) => Math.sin(now / 700 - x * 0.025 - y * 0.012) * gust;
     for (const s of this.spr.nodes.values()) {
-      if (s.base !== 'tree' && s.base !== 'tree_young') continue;
+      if (s.base !== 'tree' && s.base !== 'tree_young' && s.base !== 'pine') continue;
       if (!view.contains(s.x, s.y - 8)) continue;
       const p = phase(s.x, s.y);
       s.setFrame(p > 0.55 ? s.base + '_b' : p < -0.75 ? s.base + '_a' : s.base);
+      // in a strong gust a leaf sometimes drifts off a round tree (daytime only, a few at a time)
+      if (p > 0.9 && s.base === 'tree' && !this.w.night && this.leaves < 6 && Math.random() < 0.04) this.leafFall(s.x, s.y - 18);
     }
     for (const d of this.decor) {
       if (!d.anim || !d.img.visible || !view.contains(d.img.x, d.img.y)) continue;
@@ -596,6 +678,12 @@ export default class PlayScene extends Phaser.Scene {
     for (const e of this.w.enemies) if (e.hp < e.max) bar(e.x * TILE - 6, e.y * TILE - 12, 12, e.hp / e.max, 0xb13e53);
     this.selBox.clear();
     const a = 0.6 + Math.sin(this.time.now / 150) * 0.4;
+    const gt = this.buildType && this.ghost.visible && this.ghostTile;
+    if (gt) { // footprint of what will be placed: green when it fits, red when it does not
+      const col = gt.ok ? 0x38b764 : 0xb13e53;
+      this.selBox.fillStyle(col, 0.35).fillRect(gt.x * TILE, gt.y * TILE, gt.w * TILE, gt.h * TILE);
+      this.selBox.lineStyle(1, gt.ok ? 0xa7f070 : 0xff8a8a, 0.9).strokeRect(gt.x * TILE + 0.5, gt.y * TILE + 0.5, gt.w * TILE - 1, gt.h * TILE - 1);
+    }
     const sel = this.selected && this.w.buildings.find((b) => b.id === this.selected);
     if (sel) { const def = BUILDINGS[sel.type]; this.selBox.lineStyle(1, 0xffcd75, a).strokeRect(sel.x * TILE + 0.5, sel.y * TILE + 0.5, def.w * TILE - 1, def.h * TILE - 1); }
     const v = this.selVillager && this.spr.villagers.get(this.selVillager);
@@ -618,6 +706,7 @@ export default class PlayScene extends Phaser.Scene {
     }
     this.light.setFillStyle(col, 1).setAlpha(alpha);
     for (const o of this.spr.buildings.values()) if (o.glow) o.glow.setAlpha(dark * (0.55 + Math.sin(this.time.now / 300 + o.img.x) * 0.08));
+    for (const g of this.lamps || []) g.setAlpha(dark * 0.7);
     return 1 - dark;
   }
 
@@ -681,6 +770,12 @@ export default class PlayScene extends Phaser.Scene {
     if (!s || s.isShaking) return;
     s.isShaking = true;
     this.tweens.add({ targets: s, x: s.baseX + 1, duration: 40, yoyo: true, repeat: 1, onComplete: () => { s.x = s.baseX; s.isShaking = false; } });
+  }
+  leafFall(x, y) {
+    this.leaves = (this.leaves || 0) + 1;
+    const p = this.acquire('leaf').setPosition(x + (Math.random() - 0.5) * 10, y).setDepth(6300);
+    this.tweens.add({ targets: p, x: p.x + 14 + Math.random() * 12, y: y + 16 + Math.random() * 6, angle: 200, duration: 1800, ease: 'Sine.InOut',
+      onComplete: () => { this.tweens.add({ targets: p, alpha: 0, duration: 500, onComplete: () => { this.release(p); this.leaves--; } }); } });
   }
   flash(id) { const s = this.spr.enemies.get(id); if (s) s.flashUntil = this.time.now + 80; }
 }

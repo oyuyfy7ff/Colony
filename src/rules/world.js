@@ -454,7 +454,22 @@ function stepVillager(w, v, dt) {
 
   // arrived: do the job
   const job = v.job;
-  if (job.kind === 'stroll') { v.job = null; v.wait = 1.5 + rand(w) * 2.5; return; }
+  if (job.kind === 'stroll') {
+    v.job = null;
+    // meet someone close by: both stop, face each other and chat for a moment
+    const friend = w.villagers.find((o) => o !== v && !o.hidden && !o.path.length && Math.hypot(o.x - v.x, o.y - v.y) < 2.2);
+    if (friend && !friend.emote) {
+      v.face = friend.x < v.x ? -1 : 1; friend.face = -v.face;
+      emote(w, v, 'talk', 2); v.wait = 2.5;
+      if (!friend.job || friend.job.kind === 'stroll') { friend.pause = 2.2; }
+      return;
+    }
+    // otherwise look toward the plaza (the heart of the village) before deciding again
+    const h = hall(w);
+    if (h) v.face = h.x + 1 < v.x ? -1 : 1;
+    v.wait = 1.5 + rand(w) * 2.5;
+    return;
+  }
   if (job.kind === 'rest') {
     if (!isLunch(w) || goHome) { v.job = null; v.sit = false; return; }
     v.sit = true;
