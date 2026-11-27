@@ -10,6 +10,8 @@ const STEP = 1 / 30;
 const AUTOSAVE_EVERY = 30; // seconds of daytime; also at every dawn. Never mid-raid.
 const store = () => { try { return window.localStorage; } catch { return null; } };
 const A = 'A'; // the sprite atlas
+const SWAYS = new Set(['tree', 'tree_young', 'pine', 'blossom', 'fruit', 'autumn', 'golden', 'deep', 'small']);
+const BIG_TREES = new Set(['tree', 'pine', 'blossom', 'fruit', 'autumn', 'golden', 'deep']);
 
 export function loadSave() {
   const s = store();
@@ -143,10 +145,10 @@ export default class PlayScene extends Phaser.Scene {
       const i = +key, x = i % MAP_W, y = (i / MAP_W) | 0, n = w.nodes[key];
       const nb = [[1, 0], [-1, 0], [0, 1]].map(([dx, dy]) => [x + dx, y + dy]).find(([a, b]) => free(a, b));
       if (!nb) continue;
-      if (n.t === 'tree' && r() < 0.12) add('mushroom', nb[0] * TILE + 4 + r() * 8, nb[1] * TILE + 8 + r() * 6, false);
+      if (n.t === 'tree' && r() < 0.12) add(r() < 0.5 ? 'mushroom' : 'mushroom_b', nb[0] * TILE + 4 + r() * 8, nb[1] * TILE + 8 + r() * 6, false);
       if (n.t === 'rock' && r() < 0.4) add('pebble', nb[0] * TILE + 3 + r() * 10, nb[1] * TILE + 6 + r() * 8, false);
     }
-    for (const b of w.buildings) if (b.type === 'house' && b.done) this.addGarden(b, true);
+    for (const b of w.buildings) if ((b.type === 'house' || b.type === 'farm') && b.done) this.addGarden(b, true);
     this.setupPlaza();
     this.setupShore(r, free);
   }
@@ -155,6 +157,13 @@ export default class PlayScene extends Phaser.Scene {
   setupPlaza() {
     const w = this.w, h = hallOf(w);
     this.lamps = [];
+    for (const [dx, dy, frame] of [[-2, 4, 'well'], [3, 4, 'sign']]) {
+      const tx = h.x + dx, ty = h.y + dy;
+      if (this.isWater(tx, ty) || w.nodes[ty * MAP_W + tx] || w._b[ty * MAP_W + tx]) continue;
+      const x = tx * TILE + 8, y = ty * TILE + 15;
+      this.add.image(x, y, A, frame).setOrigin(0.5, 1).setDepth(y - 4);
+      this.add.image(x, y, A, 'shadow').setDepth(y - 6).setScale(frame === 'well' ? 1.4 : 0.7, 0.7);
+    }
     plazaSeats(w).slice(0, 4).forEach((p, i) => {
       if (i % 2) return; // a bench every other seat, so the plaza is not lined with furniture
       const x = p.x * TILE + 8, y = p.y * TILE + 13;
@@ -200,16 +209,26 @@ export default class PlayScene extends Phaser.Scene {
   // a little flower bed grows beside every finished house: the village changes as it grows
   addGarden(b, instant) {
     const def = BUILDINGS[b.type], w = this.w;
-    const spots = [[b.x - 1, b.y + def.h - 1, 'flowerbed'], [b.x + def.w, b.y + def.h - 1, 'fence'], [b.x - 1, b.y + def.h - 2, 'shrub']];
+    const SETS = b.type === 'farm'
+      ? [['hay', 'crate', null], ['hay', null, 'barrel'], [null, 'hay', 'crate']]
+      : [['flowerbed', 'fence', 'shrub'], ['barrel', 'mailbox', 'crate'], ['logs', 'flowerbed', 'mailbox'], ['shrub', 'barrel', 'flowerbed']];
+    const set = SETS[b.id % SETS.length];
+    const spots = [[b.x - 1, b.y + def.h - 1], [b.x + def.w, b.y + def.h - 1], [b.x - 1, b.y + def.h - 2]];
     let k = 0;
-    for (const [x, y, frame] of spots) {
-      const i = y * MAP_W + x;
-      if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || this.isWater(x, y) || w._b[i] || w.nodes[i]) continue;
+    spots.forEach(([x, y], n) => {
+      const frame = set[n], i = y * MAP_W + x;
+      if (!frame || x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || this.isWater(x, y) || w._b[i] || w.nodes[i]) return;
       const wx = x * TILE + 8, wy = y * TILE + 15;
       const img = this.add.image(wx, wy, A, frame).setOrigin(0.5, 1).setDepth(wy - 6);
       if (!instant) { img.setScale(0.2); this.tweens.add({ targets: img, scale: 1, duration: 400, delay: k++ * 150, ease: 'Back.Out' }); }
       this.decor.push({ img, tx: x, ty: y, frame, anim: false, ph: 0 });
-    }
+    });
+  }
+  // a cut tree leaves a stump that stays until something grows or is built there
+  addStump(node) {
+    const x = node % MAP_W, y = (node / MAP_W) | 0;
+    const img = this.add.image(x * TILE + 8, y * TILE + 14, A, 'stump').setOrigin(0.5, 1).setDepth(y * TILE + 8);
+    this.decor.push({ img, tx: x, ty: y, frame: 'stump', anim: false, ph: 0 });
   }
   refreshDecor() { // decor disappears under buildings, roads, nodes and worn paths
     const w = this.w;
@@ -492,7 +511,7 @@ export default class PlayScene extends Phaser.Scene {
       switch (ev.type) {
         case 'gain': this.gainPop(ev.x * TILE, ev.y * TILE, ev.res, ev.amt); break;
         case 'hit': this.shakeNode(ev.node); if (this.isOnScreen(ev.node)) { this.hud.sfx('chop'); this.chips(ev.node, ev.t); } break;
-        case 'depleted': this.puffs(((ev.node % MAP_W) + 0.5) * TILE, (((ev.node / MAP_W) | 0) + 0.8) * TILE, 5); break;
+        case 'depleted': this.puffs(((ev.node % MAP_W) + 0.5) * TILE, (((ev.node / MAP_W) | 0) + 0.8) * TILE, 5); if (ev.t === 'tree') this.addStump(ev.node); break;
         case 'grow': { const s = this.spr.nodes.get(ev.node); if (s) { s.setScale(0.8, 1.2); this.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: 300, ease: 'Back.Out' }); } break; }
         case 'die': this.feedback('small', ev.x * TILE, ev.y * TILE, { slime: 0x9a5bd8, goblin: 0x38b764, bat: 0x5d275d }[ev.kind]); this.hud.sfx('kill'); break;
         case 'flee': this.puffs(ev.x * TILE, ev.y * TILE, 4); break;
@@ -500,7 +519,7 @@ export default class PlayScene extends Phaser.Scene {
         case 'born': this.puffs(ev.x * TILE, ev.y * TILE, 6, 0xffcd75); this.hud.toast(`${ev.name} เกิดในหมู่บ้าน!`, 'good'); this.hud.sfx('born'); break;
         case 'built': {
           this.dust(ev.x * TILE, (ev.y + 1) * TILE, 14); this.hud.sfx('built');
-          if (ev.btype === 'house') { const b = w.buildings.find((x) => x.type === 'house' && x.x + BUILDINGS.house.w / 2 === ev.x && x.y === ev.y); if (b) this.addGarden(b); }
+          if (ev.btype === 'house' || ev.btype === 'farm') { const b = w.buildings.find((x) => x.type === ev.btype && x.x + BUILDINGS[ev.btype].w / 2 === ev.x && x.y === ev.y); if (b) this.addGarden(b); }
           break;
         }
         case 'destroyed': this.feedback('large', ev.x * TILE, ev.y * TILE, 0x566c86); this.hud.sfx('boom'); this.hud.toast(`${BUILDINGS[ev.btype].name}ถูกทำลาย!`, 'bad'); break;
@@ -526,8 +545,13 @@ export default class PlayScene extends Phaser.Scene {
   // ---------- render sync ----------
   nodeFrame(n) {
     if (n.t === 'bush') return n.amt <= 0 ? 'bush_empty' : 'bush';
-    if (n.t === 'tree') return (n.grow ?? 2) === 0 ? 'sapling' : n.grow === 1 ? 'tree_young' : n.style === 'pine' ? 'pine' : n.style === 'blossom' ? 'blossom' : 'tree';
+    if (n.t === 'tree') return (n.grow ?? 2) === 0 ? 'sapling' : n.grow === 1 ? 'tree_young' : (!n.style || n.style === 'round' ? 'tree' : n.style);
+    if (n.t === 'rock') return this.rockLook(n);
     return n.t;
+  }
+  rockLook(n) { // three rock shapes, fixed per rock
+    if (n.look === undefined) n.look = (Math.random() * 3) | 0;
+    return ['rock', 'rock_1', 'rock_2'][n.look];
   }
   syncAll() {
     const w = this.w, now = this.time.now;
@@ -541,10 +565,10 @@ export default class PlayScene extends Phaser.Scene {
         const x = ((i % MAP_W) + 0.5) * TILE, y = (((i / MAP_W) | 0) + 1) * TILE;
         s = this.add.image(x, y, A, fr).setOrigin(0.5, 1).setDepth(y);
         s.baseX = s.x; s.base = fr;
-        s.shadow = this.add.image(x, y - 1, A, 'shadow_l').setDepth(y - 2).setScale(['tree', 'pine', 'blossom'].includes(fr) ? 1.1 : 0.6, 1);
+        s.shadow = this.add.image(x, y - 1, A, 'shadow_l').setDepth(y - 2).setScale(BIG_TREES.has(fr) ? 1.1 : fr === 'small' ? 0.8 : 0.6, 1);
         this.spr.nodes.set(i, s);
         s.setScale(0.2); this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.Out' });
-      } else if (s.base !== fr) { s.base = fr; s.setFrame(fr); s.shadow.setScale(['tree', 'pine', 'blossom'].includes(fr) ? 1.1 : 0.6, 1); }
+      } else if (s.base !== fr) { s.base = fr; s.setFrame(fr); s.shadow.setScale(BIG_TREES.has(fr) ? 1.1 : fr === 'small' ? 0.8 : 0.6, 1); }
     }
     for (const [i, s] of this.spr.nodes) if (!seen.has(i)) { s.shadow.destroy(); s.destroy(); this.spr.nodes.delete(i); }
 
@@ -554,7 +578,7 @@ export default class PlayScene extends Phaser.Scene {
       const def = BUILDINGS[b.type];
       let o = this.spr.buildings.get(b.id);
       // construction shows step by step: stakes, frame, half walls, finished
-      const fr = b.done ? (b.type === 'house' ? `house_${b.id % 3}` : b.type) : `site_${Math.min(2, Math.floor((b.progress / def.build) * 3))}`;
+      const fr = b.done ? (b.type === 'house' ? `house_${b.id % 9}` : b.type === 'farm' ? `farm_${b.id % 3}` : b.type) : `site_${Math.min(2, Math.floor((b.progress / def.build) * 3))}`;
       if (!o) {
         const x = (b.x + def.w / 2) * TILE, y = (b.y + def.h) * TILE;
         const img = this.add.image(x, y, A, fr).setOrigin(0.5, 1).setDepth(y - 1);
@@ -656,12 +680,12 @@ export default class PlayScene extends Phaser.Scene {
     const gust = 0.6 + 0.4 * Math.sin(now / 4000);
     const phase = (x, y) => Math.sin(now / 700 - x * 0.025 - y * 0.012) * gust;
     for (const s of this.spr.nodes.values()) {
-      if (s.base !== 'tree' && s.base !== 'tree_young' && s.base !== 'pine' && s.base !== 'blossom') continue;
+      if (!SWAYS.has(s.base)) continue;
       if (!view.contains(s.x, s.y - 8)) continue;
       const p = phase(s.x, s.y);
       s.setFrame(p > 0.55 ? s.base + '_b' : p < -0.75 ? s.base + '_a' : s.base);
       // in a strong gust a leaf sometimes drifts off a round tree (daytime only, a few at a time)
-      if (p > 0.9 && (s.base === 'tree' || s.base === 'blossom') && !this.w.night && (this.leaves || 0) < 6 && Math.random() < (s.base === 'blossom' ? 0.08 : 0.04)) this.leafFall(s.x, s.y - 20, s.base === 'blossom' ? 0xffc6e3 : 0xffffff);
+      if (p > 0.9 && (s.base === 'tree' || s.base === 'blossom' || s.base === 'autumn' || s.base === 'golden') && !this.w.night && (this.leaves || 0) < 6 && Math.random() < (s.base === 'blossom' ? 0.08 : 0.04)) this.leafFall(s.x, s.y - 20, { blossom: 0xffc6e3, autumn: 0xffa060, golden: 0xffe080 }[s.base] || 0xffffff);
     }
     for (const d of this.decor) {
       if (!d.anim || !d.img.visible || !view.contains(d.img.x, d.img.y)) continue;
@@ -721,7 +745,8 @@ export default class PlayScene extends Phaser.Scene {
     const busy = w.clock < 20 || w.clock > 70 || w.night;
     for (const b of w.buildings) {
       if (b.type !== 'house' || !b.done || Math.random() > (busy ? 0.55 : 0.18)) continue;
-      const x = b.x * TILE + 23, y = b.y * TILE - 7; // cottage chimney (2x2 sprite, 40px tall)
+      const shape = (b.id % 9) % 3; // cottage, cabin, townhouse: each has its chimney elsewhere
+      const x = b.x * TILE + [23, 7, 20][shape], y = b.y * TILE + [-7, -7, -12][shape];
       if (!view.contains(x, y)) continue;
       const p = this.acquire('smoke').setPosition(x, y).setDepth(6400).setAlpha(0.75).setScale(0.6);
       this.tweens.add({ targets: p, x: x + 6 + Math.random() * 6, y: y - 16 - Math.random() * 6, scale: 1.5, alpha: 0, duration: 1600 + Math.random() * 600, ease: 'Sine.Out', onComplete: () => this.release(p) });

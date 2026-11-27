@@ -84,7 +84,8 @@ export function createWorld(seed = (Math.random() * 1e9) | 0) {
 }
 
 // Tree looks: mostly round leafy trees, some pines, a few blossom trees.
-export function treeStyle(w) { const r = rand(w); return r < 0.25 ? 'pine' : r < 0.37 ? 'blossom' : 'round'; }
+const TREE_MIX = [['pine', 0.2], ['blossom', 0.3], ['fruit', 0.37], ['autumn', 0.43], ['golden', 0.47], ['small', 0.6], ['deep', 0.72], ['round', 1]];
+export function treeStyle(w) { const r = rand(w); return TREE_MIX.find(([, p]) => r < p)[0]; }
 
 // Derived lookup tables (not saved).
 export function rebuild(w) {
@@ -134,7 +135,7 @@ function spawnVillager(w) {
   const used = new Set(w.villagers.map((o) => o.name));
   const free = NAMES.filter((n) => !used.has(n));
   const name = free.length ? free[randInt(w, free.length)] : NAMES[randInt(w, NAMES.length)] + ' ' + (w.villagers.length + 1);
-  const v = { id: w.nextId++, name, x: hx + 0.5, y: hy + 0.5, hp: VILLAGER_HP, path: [], job: null, carry: null, work: 0, wait: rand(w), hidden: false, look: randInt(w, 8), face: 1, home: 0, emote: null, sit: false, pause: 0 };
+  const v = { id: w.nextId++, name, x: hx + 0.5, y: hy + 0.5, hp: VILLAGER_HP, path: [], job: null, carry: null, work: 0, wait: rand(w), hidden: false, look: randInt(w, 24), face: 1, home: 0, emote: null, sit: false, pause: 0 };
   w.villagers.push(v);
   assignHomes(w);
   return v;
