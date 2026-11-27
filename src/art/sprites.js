@@ -1,6 +1,7 @@
 // All art is generated at boot from tiny pixel maps, so the game ships with no image files.
 // Palette based on Sweetie 16 (public domain).
 import { TILE, MAP_W, MAP_H, T_WATER } from '../rules/config.js';
+import { extraSprites } from './world-art.js';
 
 export const PAL = {
   k: '#1a1c2c', b: '#5d275d', r: '#b13e53', o: '#ef7d57', y: '#ffcd75', l: '#a7f070',
@@ -103,6 +104,7 @@ const VILLAGER = [
 ];
 const LEGS_A = ['..kNkkNk..', '..kk..kk..'];
 const LEGS_B = ['...kNNk...', '...kkkk...'];
+const LEGS_SIT = ['.kNNNNNNk.', '.kkkkkkkk.'];
 const SLIME = [
   '....kkkk....',
   '..kkqqqqkk..',
@@ -150,10 +152,10 @@ const BAT_B = [
 const GOB_A = ['...kNk.kNk..', '...kk...kk..'];
 const GOB_B = ['....kNNNk...', '....kkkkk...'];
 const HOUSE = [
-  '.......kk.......',
-  '......krrk......',
-  '.....krorrk.....',
-  '....krrrrrrk....',
+  '.......kk..kkk..',
+  '......krrk.knk..',
+  '.....krorrkknk..',
+  '....krrrrrrkkk..',
   '...krrrrrorrk...',
   '..krorrrrrrrrk..',
   '.kkkkkkkkkkkkkk.',
@@ -195,6 +197,10 @@ const UI = {
   axe: ['..kkk...', '.kssk...', 'kssnk...', '.kknk...', '...kn...', '....kn..', '.....kn.', '......k.'],
   bow: ['..kk....', '.kn.k...', 'kn...k..', 'kn.kkkkk', 'kn...k..', '.kn.k...', '..kk....', '........'],
   hand: ['...k....', '..kwk...', '..kwk...', '..kwkkk.', 'kkkwwwwk', 'kwwwwwwk', '.kwwwwk.', '..kkkk..'],
+  hammer: ['.kkkkk..', 'kssssk..', 'kssskk..', '.kkknk..', '....kn..', '.....kn.', '......kn', '.......k'],
+  auto: ['..kkkk..', '.kyyyyk.', 'kyk..kyk', 'ky....kk', 'kk....yk', 'kyk..kyk', '.kyyyyk.', '..kkkk..'],
+  road: ['kkkkkkkk', 'ksSksSSk', 'kSSkSSsk', 'kkkkkkkk', 'kSsSkSSk', 'kSSSksSk', 'kkkkkkkk', '........'],
+  person: ['..kkkk..', '.khhhhk.', '.khppk..', '..kppk..', '.kcccck.', 'kpccccpk', '.kcccck.', '.kk..kk.'],
   phone: ['kkkkkkkkkkkkkkkk', 'kDDDDDDDDDDDDDDk', 'kDccccccccccccDk', 'kDccccccccccccDk', 'kDccccccccccccwk', 'kDccccccccccccDk', 'kDccccccccccccDk', 'kDDDDDDDDDDDDDDk', 'kkkkkkkkkkkkkkkk'],
 };
 const rot = (rows, turns) => { let r = rows; for (let t = 0; t < turns; t++) r = r[0].split('').map((_, x) => r.map((row) => row[x]).reverse().join('')); return r; };
@@ -332,43 +338,39 @@ export function paintGround(world) {
   return cv;
 }
 
+// Every world sprite as a named canvas.
+function spriteCanvases() {
+  const out = {
+    rock: fromRows(ROCK), bush: fromRows(BUSH), bush_empty: fromRows(BUSH, { r: 'g' }), house: fromRows(HOUSE),
+    farm: farm(), wall: wall(), tower: tower(), hall: hallArt(), site: site(), arrow: arrow(), shadow: shadow(), puff: puff(),
+    slime: fromRows(SLIME), bat_0: fromRows(BAT_A), bat_1: fromRows(BAT_B),
+    goblin_0: fromRows([...GOBLIN, ...GOB_A]), goblin_1: fromRows([...GOBLIN, ...GOB_B]),
+    ic_wood: fromRows(ICON_WOOD), ic_stone: fromRows(ICON_STONE), ic_food: fromRows(ICON_FOOD),
+  };
+  SHIRTS.forEach((c, i) => { out[`vill${i}_0`] = fromRows([...VILLAGER, ...LEGS_A], { c }); out[`vill${i}_1`] = fromRows([...VILLAGER, ...LEGS_B], { c }); });
+  return { ...out, ...extraSprites(VILLAGER, SHIRTS, LEGS_SIT) };
+}
+
+// Packs all sprites into one atlas texture 'A' (shelf packing, 1px gaps) so the world draws in a
+// few batches instead of one draw call per texture switch (performance-optimization skill).
 export function makeTextures(textures) {
-  const add = (key, cv) => { if (textures.exists(key)) textures.remove(key); textures.addCanvas(key, cv); };
-  add('tree', fromRows(TREE));
-  add('rock', fromRows(ROCK));
-  add('bush', fromRows(BUSH));
-  add('bush_empty', fromRows(BUSH, { r: 'g' }));
-  add('house', fromRows(HOUSE));
-  add('farm', farm());
-  add('wall', wall());
-  add('tower', tower());
-  add('hall', hallArt());
-  add('site', site());
-  add('arrow', arrow());
-  add('glow', glow());
-  add('shadow', shadow());
-  add('puff', puff());
-  SHIRTS.forEach((c, i) => {
-    add(`vill${i}_0`, fromRows([...VILLAGER, ...LEGS_A], { c }));
-    add(`vill${i}_1`, fromRows([...VILLAGER, ...LEGS_B], { c }));
-  });
-  add('slime', fromRows(SLIME));
-  add('bat_0', fromRows(BAT_A));
-  add('bat_1', fromRows(BAT_B));
-  add('goblin_0', fromRows([...GOBLIN, ...GOB_A]));
-  add('goblin_1', fromRows([...GOBLIN, ...GOB_B]));
-  add('ic_wood', fromRows(ICON_WOOD));
-  add('ic_stone', fromRows(ICON_STONE));
-  add('ic_food', fromRows(ICON_FOOD));
+  const all = spriteCanvases();
+  const names = Object.keys(all).sort((p, q) => all[q].height - all[p].height);
+  const W = 256; let x = 0, y = 0, rowH = 0; const pos = {};
+  for (const n of names) { const c = all[n]; if (x + c.width > W) { x = 0; y += rowH + 1; rowH = 0; } pos[n] = [x, y]; x += c.width + 1; rowH = Math.max(rowH, c.height); }
+  const atlas = document.createElement('canvas'); atlas.width = W; atlas.height = y + rowH;
+  const ctx = atlas.getContext('2d');
+  for (const n of names) ctx.drawImage(all[n], pos[n][0], pos[n][1]);
+  for (const k of ['A', 'glow']) if (textures.exists(k)) textures.remove(k);
+  const tex = textures.addCanvas('A', atlas);
+  for (const n of names) tex.add(n, 0, pos[n][0], pos[n][1], all[n].width, all[n].height);
+  textures.addCanvas('glow', glow());
+  return names;
 }
 
 // Every generated texture as a canvas, for the asset QA export (tools/export-sprites.cjs).
 export function allSprites() {
-  const out = {};
-  const fake = { exists: () => false, remove() {}, addCanvas: (k, cv) => { out[k] = cv; } };
-  makeTextures(fake);
-  delete out.glow; // soft light gradient, not pixel art
-  return out;
+  return spriteCanvases();
 }
 
 // Data-URLs scaled up crisply, for the HTML HUD.
@@ -380,6 +382,8 @@ export function iconURL(name, scale = 4) {
     wood: fromRows(ICON_WOOD), stone: fromRows(ICON_STONE), food: fromRows(ICON_FOOD), pop: fromRows(ICON_POP),
     house: fromRows(HOUSE), farm: farm(), tower: tower(), wall: wall(),
     slime: fromRows(SLIME), goblin: fromRows([...GOBLIN, ...GOB_A]), bat: fromRows(BAT_A),
+    vill0: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[0] }), vill1: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[1] }),
+    vill2: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[2] }), vill3: fromRows([...VILLAGER, ...LEGS_A], { c: SHIRTS[3] }),
   }[name] || (UI[name] && fromRows(UI[name]));
   if (!src) throw new Error(`no icon ${name}`);
   const cv = document.createElement('canvas');

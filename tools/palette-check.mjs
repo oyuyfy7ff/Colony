@@ -3,7 +3,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 
-const pal = new Set([...readFileSync(new URL('../src/art/sprites.js', import.meta.url), 'utf8').matchAll(/#([0-9a-fA-F]{6})/g)].map((m) => m[1].toLowerCase()));
+const src = ['../src/art/sprites.js', '../src/art/world-art.js'].map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
+const pal = new Set([...src.matchAll(/#([0-9a-fA-F]{6})/g)].map((m) => m[1].toLowerCase()));
 function decode(buf) { // 8-bit RGBA, non-interlaced PNG (what canvas.toDataURL writes)
   let i = 8, w = 0, h = 0; const idat = [];
   while (i < buf.length) {

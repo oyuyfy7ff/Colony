@@ -28,6 +28,7 @@ export const BUILDINGS = {
   wall:  { name: 'กำแพง', w: 1, h: 1, hp: 200, cost: { stone: 4 }, build: 1.5 },
 };
 export const BUILD_ORDER = ['house', 'farm', 'tower', 'wall'];
+export const ROAD_INFO = { name: 'ถนน', cost: { stone: 1 } }; // painted tile by tile, villagers walk faster on it
 
 export const ENEMIES = {
   slime:  { hp: 22, speed: 1.15, dmg: 5 },

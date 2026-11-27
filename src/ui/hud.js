@@ -1,7 +1,7 @@
 // HTML HUD over the canvas (game-ui-ux skill): crisp Thai text at any size, 44px+ touch targets,
 // safe-area insets in CSS, updates driven by world events instead of polling every frame,
 // modals as a screen stack with focus moved into the top screen and restored on close.
-import { BUILDINGS, BUILD_ORDER, DAY_LEN, NIGHT_LEN, ENEMY_NAME } from '../rules/config.js';
+import { BUILDINGS, BUILD_ORDER, DAY_LEN, NIGHT_LEN, ENEMY_NAME, ROAD_INFO } from '../rules/config.js';
 import { canAfford, popCap } from '../rules/world.js';
 import { iconURL, icon } from '../art/sprites.js';
 import { GameAudio } from './audio.js';
@@ -21,11 +21,17 @@ export class Hud {
     this.settings = loadSettings();
     this.audio = new GameAudio(this.settings);
     this.stack = []; // screen stack: [{ name, html, focusBack }]
+    const card = (t, info) => `
+      <button class="bcard" data-build="${t}">
+        <img src="${iconURL(t === 'road' ? 'road' : t, 3)}" alt="">
+        <span class="nm">${info.name}</span>
+        <span class="cost">${Object.entries(info.cost).map(([k, v]) => `<img src="${iconURL(k, 2)}" alt="${RES_NAME[k]}"><span data-cost="${k}">${v}</span>`).join(' ')}</span>
+      </button>`;
     this.root.innerHTML = `
       <div class="top">
-        <div class="chips">
-          ${['wood', 'stone', 'food'].map((r) => `<div class="chip" title="${RES_NAME[r]}"><img src="${iconURL(r)}" alt="${RES_NAME[r]}"><b data-res="${r}">0</b></div>`).join('')}
-          <div class="chip" title="ประชากร"><img src="${iconURL('pop')}" alt="ประชากร"><b data-pop>0</b></div>
+        <div class="resbar" role="group" aria-label="ทรัพยากร">
+          ${['wood', 'stone', 'food'].map((r) => `<div class="res" title="${RES_NAME[r]}"><img src="${iconURL(r)}" alt="${RES_NAME[r]}"><b data-res="${r}">0</b></div>`).join('')}
+          <div class="res" title="ประชากร"><img src="${iconURL('pop')}" alt="ประชากร"><b data-pop>0</b></div>
         </div>
         <div class="clock">
           <div class="dayrow"><img class="ic" data-dayicon alt=""><span data-day>วันที่ 1</span><span class="fed" data-fed></span></div>
@@ -33,38 +39,40 @@ export class Hud {
           <button class="raid" data-raid title="ศัตรูคืนนี้"></button>
         </div>
         <div class="btns">
-          <button class="btn" data-home aria-label="กลับไปที่ศาลากลาง">${icon('home')}</button>
-          <button class="btn" data-speed aria-label="ความเร็ว"><img class="ic" data-speedicon src="${iconURL('play')}" alt=""><span data-speedtxt>1x</span></button>
-          <button class="btn" data-menu aria-label="เมนู">${icon('menu')}</button>
+          <button class="btn sq" data-home aria-label="กลับไปที่ศาลากลาง">${icon('home')}</button>
+          <button class="btn sq" data-speed aria-label="ความเร็ว"><img class="ic" data-speedicon src="${iconURL('play')}" alt=""><span data-speedtxt>1x</span></button>
+          <button class="btn sq" data-menu aria-label="เมนู">${icon('menu')}</button>
         </div>
       </div>
       <div class="toasts" data-toasts role="status" aria-live="polite"></div>
       <div class="info hidden" data-info>
-        <div><b data-info-name></b> <span data-info-hp></span></div>
+        <img class="portrait hidden" data-info-pic alt="">
+        <div class="infotext"><b data-info-name></b><span data-info-hp></span></div>
         <button class="btn danger" data-demolish>รื้อ (คืนครึ่งหนึ่ง)</button>
       </div>
       <div class="bottom">
-        <div class="focus">
-          <span>งานหลัก</span>
-          ${['auto', 'wood', 'stone', 'food'].map((f) => `<button class="btn sm" data-focus="${f}">${f === 'auto' ? 'อัตโนมัติ' : RES_NAME[f]}</button>`).join('')}
+        <div class="focus" role="group" aria-label="งานหลักของชาวบ้าน">
+          <div class="ptitle">งานหลัก</div>
+          ${[['auto', 'อัตโนมัติ', 'auto'], ['wood', 'ไม้', 'wood'], ['stone', 'หิน', 'stone'], ['food', 'อาหาร', 'food']].map(([f, label, ic]) => `<button class="seg" data-focus="${f}"><img src="${iconURL(ic, 3)}" alt="">${label}</button>`).join('')}
         </div>
-        <div class="build">
-          ${BUILD_ORDER.map((t) => `
-            <button class="bbtn" data-build="${t}">
-              <img src="${iconURL(t, 3)}" alt="">
-              <span class="nm">${BUILDINGS[t].name}</span>
-              <span class="cost">${Object.entries(BUILDINGS[t].cost).map(([k, v]) => `<img src="${iconURL(k, 2)}" alt="${RES_NAME[k]}"><span data-cost="${k}">${v}</span>`).join(' ')}</span>
-            </button>`).join('')}
-          <button class="bbtn cancel hidden" data-cancel>${icon('close', 'ic big')}<span class="nm">ยกเลิก</span></button>
+        <div class="buildwrap">
+          <div class="buildpanel hidden" data-buildpanel role="menu" aria-label="สิ่งก่อสร้าง">
+            <div class="ptitle">สร้าง</div>
+            <div class="cards">${BUILD_ORDER.map((t) => card(t, BUILDINGS[t])).join('')}${card('road', ROAD_INFO)}</div>
+          </div>
+          <div class="modechip hidden" data-modechip><img data-modeicon alt=""><span data-modetxt></span><button class="btn sm danger" data-cancel>${icon('close')}ยกเลิก</button></div>
+          <button class="btn buildbtn" data-buildmenu aria-expanded="false">${icon('hammer', 'ic big')}<span>สร้าง</span></button>
         </div>
       </div>
       <div class="modal hidden" data-modal role="dialog" aria-modal="true"></div>
     `;
+
     this.el = {
       res: Object.fromEntries(['wood', 'stone', 'food'].map((r) => [r, $(`[data-res=${r}]`, root)])),
       pop: $('[data-pop]', root), day: $('[data-day]', root), sun: $('[data-sun]', root), fed: $('[data-fed]', root),
       raid: $('[data-raid]', root), speed: $('[data-speed]', root), toasts: $('[data-toasts]', root),
       info: $('[data-info]', root), modal: $('[data-modal]', root), cancel: $('[data-cancel]', root),
+      panel: $('[data-buildpanel]', root), menuBtn: $('[data-buildmenu]', root), chip: $('[data-modechip]', root),
     };
     this.bindings();
     document.addEventListener('keydown', (e) => {
@@ -78,16 +86,20 @@ export class Hud {
     on('[data-menu]', () => this.menu());
     on('[data-home]', () => { this.scene?.focusHall(); this.sfx('click'); });
     on('[data-raid]', () => { this.scene?.focusSide(this.scene.w.nextSide); this.sfx('click'); });
+    on('[data-buildmenu]', () => { this.setPanel(this.el.panel.classList.contains('hidden')); this.sfx('click'); });
     on('[data-build]', (b) => {
       const t = b.dataset.build;
-      this.scene.setBuild(this.scene.buildType === t ? null : t);
+      this.scene.setBuild(t);
+      this.setPanel(false);
       this.sfx('click');
-      if (this.scene.buildType) this.toast(`แตะพื้นที่ว่างเพื่อสร้าง${BUILDINGS[t].name}`, 'info');
+      this.toast(t === 'road' ? 'แตะหรือลากบนพื้นเพื่อวางถนน' : `แตะพื้นที่ว่างเพื่อสร้าง${BUILDINGS[t].name}`, 'info');
       this.refresh();
     });
     on('[data-cancel]', () => { this.scene.setBuild(null); this.refresh(); });
     on('[data-focus]', (b) => { this.scene.w.focus = b.dataset.focus; this.sfx('click'); this.refresh(); });
     on('[data-demolish]', () => { this.scene.demolishSelected(); this.sfx('bad'); this.refresh(); });
+    // press feedback: a short highlight on every HUD button
+    this.root.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (b) { b.classList.remove('pressed'); void b.offsetWidth; b.classList.add('pressed'); } });
     for (const sel of ['.top', '.bottom', '[data-info]', '[data-modal]']) {
       const el = $(sel, this.root);
       for (const ev of ['pointerdown', 'pointerup', 'touchstart']) el.addEventListener(ev, (e) => e.stopPropagation());
@@ -106,7 +118,7 @@ export class Hud {
   // ---------- event-driven updates ----------
   onEvent(ev) {
     switch (ev.type) {
-      case 'gain': case 'built': case 'born': case 'destroyed': case 'placed': this.stocks(); this.refresh(); break;
+      case 'gain': case 'built': case 'born': case 'destroyed': case 'placed': case 'road': this.stocks(); this.refresh(); break;
       case 'day': this.stocks(); this.raidPreview(); this.clock(true); break;
       case 'night': this.raidPreview(); this.clock(true); break;
     }
@@ -153,19 +165,42 @@ export class Hud {
     const s = this.scene; if (!s) return;
     this.stocks();
     this.root.querySelectorAll('[data-build]').forEach((b) => {
-      const t = b.dataset.build;
+      const t = b.dataset.build, cost = t === 'road' ? ROAD_INFO.cost : BUILDINGS[t].cost;
       b.classList.toggle('active', s.buildType === t);
-      const poor = !canAfford(s.w, t);
-      b.classList.toggle('poor', poor);
-      // not colour alone: the missing cost number turns red AND gets a marker
-      b.querySelectorAll('[data-cost]').forEach((c) => c.classList.toggle('short', s.w.stock[c.dataset.cost] < BUILDINGS[t].cost[c.dataset.cost]));
+      b.classList.toggle('poor', t === 'road' ? s.w.stock.stone < 1 : !canAfford(s.w, t));
+      // not colour alone: the missing cost number turns red AND gets a wavy underline
+      b.querySelectorAll('[data-cost]').forEach((c) => c.classList.toggle('short', s.w.stock[c.dataset.cost] < cost[c.dataset.cost]));
     });
-    this.el.cancel.classList.toggle('hidden', !s.buildType);
+    const t = s.buildType;
+    this.el.chip.classList.toggle('hidden', !t);
+    this.el.menuBtn.classList.toggle('hidden', !!t);
+    if (t) {
+      const name = t === 'road' ? ROAD_INFO.name : BUILDINGS[t].name;
+      $('[data-modeicon]', this.el.chip).src = iconURL(t === 'road' ? 'road' : t, 2);
+      $('[data-modetxt]', this.el.chip).textContent = `กำลังวาง${name}`;
+    }
     this.root.querySelectorAll('[data-focus]').forEach((b) => b.classList.toggle('active', s.w.focus === b.dataset.focus));
   }
 
+  setPanel(open) {
+    this.el.panel.classList.toggle('hidden', !open);
+    this.el.menuBtn.setAttribute('aria-expanded', String(open));
+    this.el.menuBtn.classList.toggle('on', open);
+    if (open) this.refresh();
+  }
+  showVillager(v) {
+    const el = this.el.info;
+    if (!v) { el.classList.add('hidden'); return; }
+    const pic = $('[data-info-pic]', el);
+    pic.src = iconURL(`vill${v.look}`, 3); pic.classList.remove('hidden');
+    $('[data-info-name]', el).textContent = v.name;
+    $('[data-info-hp]', el).textContent = v.doing;
+    $('[data-demolish]', el).classList.add('hidden');
+    el.classList.remove('hidden');
+  }
   showInfo(b) {
     const el = this.el.info;
+    $('[data-info-pic]', el).classList.add('hidden');
     if (!b) { el.classList.add('hidden'); return; }
     const def = BUILDINGS[b.type];
     $('[data-info-name]', el).textContent = def.name + (b.done ? '' : ' (กำลังสร้าง)');
@@ -175,6 +210,9 @@ export class Hud {
   }
 
   toast(text, kind = 'info') {
+    // sit just under the clock panel, whatever its height on this screen
+    const clockBox = this.root.querySelector('.clock').getBoundingClientRect();
+    this.el.toasts.style.top = `${Math.round(clockBox.bottom + 6)}px`;
     const t = document.createElement('div');
     t.className = `toast ${kind}`;
     t.textContent = text;

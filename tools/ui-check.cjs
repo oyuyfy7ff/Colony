@@ -7,7 +7,7 @@
 const { chromium, devices } = require('playwright');
 const fs = require('fs');
 
-const URL = 'http://localhost:4173/';
+const URL = 'http://localhost:4173/?seed=20261127'; // fixed map so every run checks the same village
 const OUT = process.argv[2] || 'out/ui';
 fs.mkdirSync(OUT, { recursive: true });
 const results = [];
@@ -35,7 +35,7 @@ async function layoutCheck(page, label) {
   const r = await W(page, () => {
     const emoji = /\p{Extended_Pictographic}/u.test(document.body.innerText);
     const vis = (el) => el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
-    const panels = ['.chips', '.clock', '.btns', '.focus', '.build'].map((s) => document.querySelector(s)).filter(vis);
+    const panels = ['.resbar', '.clock', '.btns', '.focus', '.buildwrap'].map((s) => document.querySelector(s)).filter(vis);
     const rects = panels.map((e) => e.getBoundingClientRect());
     const overlaps = [];
     for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
@@ -59,6 +59,12 @@ async function layoutCheck(page, label) {
   ok(`${label}: toasts and panels do not cover controls`, !r.covered);
 }
 
+// Open the build menu and pick a card (the menu closes itself after a pick).
+async function pick(page, type) {
+  if (await W(page, () => document.querySelector('[data-buildpanel]').classList.contains('hidden') && !document.querySelector('[data-buildmenu]').classList.contains('hidden'))) await page.locator('[data-buildmenu]').tap();
+  else if (await W(page, () => !document.querySelector('[data-modechip]').classList.contains('hidden'))) { await page.locator('[data-cancel]').tap(); await page.locator('[data-buildmenu]').tap(); }
+  await page.locator(`[data-build=${type}]`).tap();
+}
 // Screen point of a free tile near the hall that is visible and not covered by HUD.
 async function freeTileScreen(page, type) {
   return W(page, (type) => {
@@ -96,8 +102,17 @@ async function freeTileScreen(page, type) {
 
   // build a house through the real UI
   const before = await W(page, () => ({ wood: game.scene.getScene('play').w.stock.wood, n: game.scene.getScene('play').w.buildings.length }));
-  await page.locator('[data-build=house]').tap();
-  ok('house button enters build mode', await W(page, () => game.scene.getScene('play').buildType === 'house' && !document.querySelector('[data-cancel]').classList.contains('hidden')));
+  await page.locator('[data-buildmenu]').tap();
+  ok('build menu opens', await W(page, () => !document.querySelector('[data-buildpanel]').classList.contains('hidden')));
+  await wait(page, 400); // let the open animation finish
+  await shot(page, 'build-menu');
+  await layoutCheck(page, 'build menu open');
+  await page.locator('[data-buildmenu]').tap();
+  ok('build menu closes again', await W(page, () => document.querySelector('[data-buildpanel]').classList.contains('hidden')));
+  await pick(page, 'house');
+  await wait(page, 300);
+  await layoutCheck(page, 'build mode with hint toast');
+  ok('house card enters build mode and shows the mode chip', await W(page, () => game.scene.getScene('play').buildType === 'house' && !document.querySelector('[data-modechip]').classList.contains('hidden') && document.querySelector('[data-buildpanel]').classList.contains('hidden')));
   let t = await freeTileScreen(page, 'house');
   ok('found a free tile on screen', !!t);
   await page.touchscreen.tap(t.sx, t.sy);
@@ -108,7 +123,7 @@ async function freeTileScreen(page, type) {
   await shot(page, 'build-house');
 
   // tower is unaffordable at the start: the UI must say so
-  await page.locator('[data-build=tower]').tap();
+  await pick(page, 'tower');
   ok('unaffordable tower shows a red cost', await W(page, () => !!document.querySelector('[data-build=tower] .short')));
   t = await freeTileScreen(page, 'tower');
   await page.touchscreen.tap(t.sx, t.sy);
@@ -122,13 +137,26 @@ async function freeTileScreen(page, type) {
   await W(page, () => { const w = game.scene.getScene('play').w; w.stock.wood = 200; w.stock.stone = 200; w.stock.food = 80; });
   for (const type of ['farm', 'tower', 'wall']) {
     const n0 = await W(page, () => game.scene.getScene('play').w.buildings.length);
-    await page.locator(`[data-build=${type}]`).tap();
+    await pick(page, type);
     const p = await freeTileScreen(page, type);
     await page.touchscreen.tap(p.sx, p.sy);
     await wait(page, 150);
     ok(`build ${type} by tapping`, (await W(page, () => game.scene.getScene('play').w.buildings.length)) === n0 + 1);
   }
+  // roads: tap and drag to paint
+  await pick(page, 'road');
+  const r0 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.stock.stone }));
+  const rt = await freeTileScreen(page, 'wall');
+  await page.mouse.move(rt.sx, rt.sy); await page.mouse.down();
+  for (let k = 1; k <= 6; k++) await page.mouse.move(rt.sx + k * 9, rt.sy, { steps: 2 });
+  await page.mouse.up();
+  await wait(page, 700);
+  const r1 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.stock.stone }));
+  ok('dragging paints a road and costs stone', r1.n >= r0.n + 2 && r1.stone === r0.stone - (r1.n - r0.n), JSON.stringify([r0, r1]));
+  ok('road shows on the path layer', await W(page, () => game.scene.getScene('play').pathLevel.some((l) => l === 3)));
+  await shot(page, 'road');
   await page.locator('[data-cancel]').tap();
+  ok('cancel hides the chip and brings back the build button', await W(page, () => document.querySelector('[data-modechip]').classList.contains('hidden') && !document.querySelector('[data-buildmenu]').classList.contains('hidden')));
   await page.locator('[data-speed]').tap(); await page.locator('[data-speed]').tap();
   ok('speed button cycles to 3x', await W(page, () => game.scene.getScene('play').speed === 3 && document.querySelector('[data-speedtxt]').textContent === '3x'));
   await wait(page, 7000);
@@ -136,6 +164,27 @@ async function freeTileScreen(page, type) {
   await page.locator('[data-speed]').tap();
   ok('speed button wraps back to 1x', await W(page, () => game.scene.getScene('play').speed === 1));
   await shot(page, 'village-built');
+  // living world is present
+  const life = await W(page, () => { const s = game.scene.getScene('play'); return { decor: s.decor.length, bflies: s.critters.bflies.length, sparkles: s.critters.sparkles.length, frames: s.textures.get('A').getFrameNames().length }; });
+  ok('decor, butterflies and water sparkles exist', life.decor > 50 && life.bflies > 0 && life.sparkles > 0, JSON.stringify(life));
+  // tap a villager: they wave and the card shows their name and what they are doing
+  const vp = await W(page, () => {
+    const s = game.scene.getScene('play'), cam = s.cameras.main, cr = document.querySelector('#game canvas').getBoundingClientRect(), k = cr.width / cam.width;
+    const v = s.w.villagers.find((x) => { if (x.hidden) return false; const sx = cr.left + (x.x * 16 - cam.worldView.x) * cam.zoom * k, sy = cr.top + (x.y * 16 - 2 - cam.worldView.y) * cam.zoom * k; const el = document.elementFromPoint(sx, sy); return el && el.tagName === 'CANVAS'; });
+    if (!v) return null;
+    game.scene.getScene('play').paused = true; // hold still while we tap
+    return { id: v.id, name: v.name, sx: cr.left + (v.x * 16 - cam.worldView.x) * cam.zoom * k, sy: cr.top + (v.y * 16 - 2 - cam.worldView.y) * cam.zoom * k };
+  });
+  ok('a villager is visible to tap', !!vp);
+  if (vp) {
+    await page.touchscreen.tap(vp.sx, vp.sy);
+    await wait(page, 150);
+    ok('tapping a villager shows their name and activity', await W(page, (n) => !document.querySelector('[data-info]').classList.contains('hidden') && document.querySelector('[data-info-name]').textContent === n && document.querySelector('[data-info-hp]').textContent.length > 2, vp.name));
+    ok('the villager waves', await W(page, (id) => game.scene.getScene('play').w.villagers.find((v) => v.id === id).emote?.k === 'wave', vp.id));
+    await W(page, () => { game.scene.getScene('play').paused = false; });
+    await wait(page, 300);
+    await shot(page, 'villager-card');
+  }
 
   // select and demolish the wall
   const wallPt = await W(page, () => {
@@ -197,9 +246,9 @@ async function freeTileScreen(page, type) {
   for (let i = 0; i < 60 && !fighting; i++) {
     await wait(page, 500);
     fighting = await W(page, () => {
-      const s = game.scene.getScene('play'), w = s.w, h = w.buildings.find((b) => b.type === 'hall');
-      const near = w.enemies.filter((e) => Math.hypot(e.x - h.x - 1, e.y - h.y - 1) < 6);
-      if (near.length) s.camGoal = { x: (near[0].x + h.x + 1) / 2 * 16, y: (near[0].y + h.y + 1) / 2 * 16 };
+      const s = game.scene.getScene('play'), w = s.w;
+      const near = w.enemies.filter((e) => w.buildings.some((b) => Math.hypot(e.x - b.x - 0.5, e.y - b.y - 0.5) < 6));
+      if (near.length) s.camGoal = { x: near[0].x * 16, y: near[0].y * 16 - 20 };
       return near.length > 0 && w.shots.length > 0;
     });
   }
