@@ -145,7 +145,7 @@ async function freeTileScreen(page, type) {
   }
   // roads: tap and drag to paint
   await pick(page, 'road');
-  const r0 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.stock.stone }));
+  const r0 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.ledger.spent.stone }));
   // a strip of 4 free tiles in a row on screen, so the drag only crosses open ground
   const rt = await W(page, () => {
     const s = game.scene.getScene('play'), w = s.w, cam = s.cameras.main, cr = document.querySelector('#game canvas').getBoundingClientRect(), k = cr.width / cam.width;
@@ -162,8 +162,9 @@ async function freeTileScreen(page, type) {
   for (let k = 1; k <= 6; k++) await page.mouse.move(rt.sx + (k * rt.step) / 2, rt.sy, { steps: 2 });
   await page.mouse.up();
   await wait(page, 700);
-  const r1 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.stock.stone }));
-  ok('dragging paints a road and costs stone', r1.n >= r0.n + 2 && r1.stone === r0.stone - (r1.n - r0.n), JSON.stringify([r0, r1]));
+  const r1 = await W(page, () => ({ n: game.scene.getScene('play').w.road.reduce((a, b) => a + b, 0), stone: game.scene.getScene('play').w.ledger.spent.stone }));
+  // villagers may deliver stone meanwhile, so check what was SPENT: one stone per tile painted
+  ok('dragging paints a road and costs stone', r1.n >= r0.n + 2 && r1.stone - r0.stone === r1.n - r0.n, JSON.stringify([r0, r1]));
   ok('road shows on the path layer', await W(page, () => game.scene.getScene('play').pathLevel.some((l) => l === 3)));
   await shot(page, 'road');
   await page.locator('[data-cancel]').tap();
