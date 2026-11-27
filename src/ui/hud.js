@@ -3,13 +3,13 @@
 // modals as a screen stack with focus moved into the top screen and restored on close.
 import { BUILDINGS, BUILD_ORDER, DAY_LEN, NIGHT_LEN, ENEMY_NAME } from '../rules/config.js';
 import { canAfford, popCap } from '../rules/world.js';
-import { iconURL } from '../art/sprites.js';
+import { iconURL, icon } from '../art/sprites.js';
 import { GameAudio } from './audio.js';
 import { loadSettings, saveSettings } from './settings.js';
 
 const RES_NAME = { wood: 'ไม้', stone: 'หิน', food: 'อาหาร' };
 const SIDE = ['ตะวันตก', 'ตะวันออก', 'เหนือ', 'ใต้'];
-const SIDE_ARROW = ['⬅', '➡', '⬆', '⬇'];
+const SIDE_ARROW = ['arrowW', 'arrowE', 'arrowN', 'arrowS'];
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -28,14 +28,14 @@ export class Hud {
           <div class="chip" title="ประชากร"><img src="${iconURL('pop')}" alt="ประชากร"><b data-pop>0</b></div>
         </div>
         <div class="clock">
-          <div class="dayrow"><span data-day>วันที่ 1</span><span class="fed" data-fed></span></div>
+          <div class="dayrow"><img class="ic" data-dayicon alt=""><span data-day>วันที่ 1</span><span class="fed" data-fed></span></div>
           <div class="sunbar"><i data-sun></i></div>
           <button class="raid" data-raid title="ศัตรูคืนนี้"></button>
         </div>
         <div class="btns">
-          <button class="btn" data-home aria-label="กลับไปที่ศาลากลาง">⌂</button>
-          <button class="btn" data-speed aria-label="ความเร็ว">▶ 1x</button>
-          <button class="btn" data-menu aria-label="เมนู">☰</button>
+          <button class="btn" data-home aria-label="กลับไปที่ศาลากลาง">${icon('home')}</button>
+          <button class="btn" data-speed aria-label="ความเร็ว"><img class="ic" data-speedicon src="${iconURL('play')}" alt=""><span data-speedtxt>1x</span></button>
+          <button class="btn" data-menu aria-label="เมนู">${icon('menu')}</button>
         </div>
       </div>
       <div class="toasts" data-toasts role="status" aria-live="polite"></div>
@@ -55,7 +55,7 @@ export class Hud {
               <span class="nm">${BUILDINGS[t].name}</span>
               <span class="cost">${Object.entries(BUILDINGS[t].cost).map(([k, v]) => `<img src="${iconURL(k, 2)}" alt="${RES_NAME[k]}"><span data-cost="${k}">${v}</span>`).join(' ')}</span>
             </button>`).join('')}
-          <button class="bbtn cancel hidden" data-cancel>✕<span class="nm">ยกเลิก</span></button>
+          <button class="bbtn cancel hidden" data-cancel>${icon('close', 'ic big')}<span class="nm">ยกเลิก</span></button>
         </div>
       </div>
       <div class="modal hidden" data-modal role="dialog" aria-modal="true"></div>
@@ -126,21 +126,27 @@ export class Hud {
   clock(force) {
     const s = this.scene; if (!s) return;
     const w = s.w;
-    const day = `${w.night ? '🌙' : '☀️'} วันที่ ${w.day}`;
+    const day = `วันที่ ${w.day}`;
     if (force || this.el.day.textContent !== day) this.el.day.textContent = day;
+    const di = w.night ? 'moon' : 'sun';
+    if (force || this._di !== di) { this._di = di; this.root.querySelector('[data-dayicon]').src = iconURL(di); }
     this.el.sun.style.width = `${Math.min(100, (w.clock / (DAY_LEN + NIGHT_LEN)) * 100).toFixed(1)}%`;
     this.el.sun.parentElement.classList.toggle('isnight', w.night);
-    this.el.fed.textContent = w.fed ? '🍞 อิ่ม' : '🥣 หิว';
+    if (force || this._fed !== w.fed) { this._fed = w.fed; this.el.fed.innerHTML = w.fed ? `${icon('fed')}อิ่ม` : `${icon('hungry')}หิว`; }
     this.el.fed.title = w.fed ? 'ชาวบ้านกินอิ่ม ทำงานเร็วขึ้นวันนี้' : 'อาหารไม่พอมื้อเช้า ทำงานช้ากว่าปกติ';
-    const sp = s.paused ? '❚❚' : `▶ ${s.speed}x`;
-    if (this.el.speed.textContent !== sp) this.el.speed.textContent = sp;
+    const sp = s.paused ? 'pause' : `play${s.speed}`;
+    if (force || this._sp !== sp) {
+      this._sp = sp;
+      this.root.querySelector('[data-speedicon]').src = iconURL(s.paused ? 'pause' : 'play');
+      this.root.querySelector('[data-speedtxt]').textContent = s.paused ? 'พัก' : `${s.speed}x`;
+    }
   }
   raidPreview() {
     const w = this.scene.w, plan = w.nextWave;
     if (!plan) return;
     const parts = plan.groups.map((g) => `<img src="${iconURL(g.kind, 2)}" alt="${ENEMY_NAME[g.kind]}">${g.count}`).join(' ');
     const tag = plan.tag === 'spike' ? '<span class="tag spike">คืนเดือนแดง</span>' : plan.tag === 'calm' ? '<span class="tag calm">คืนสงบ</span>' : '';
-    this.el.raid.innerHTML = `${w.night ? 'คืนนี้' : 'คืนนี้จะมา'} ${parts} ${SIDE_ARROW[w.nextSide]} ${tag}`;
+    this.el.raid.innerHTML = `${w.night ? 'คืนนี้' : 'คืนนี้จะมา'} ${parts} <img src="${iconURL(SIDE_ARROW[w.nextSide], 2)}" alt="ทิศ${SIDE[w.nextSide]}"> ${tag}`;
     this.el.raid.setAttribute('aria-label', `ศัตรูคืนนี้ ${plan.groups.map((g) => `${ENEMY_NAME[g.kind]} ${g.count}`).join(' ')} จากทิศ${SIDE[w.nextSide]}`);
   }
   refresh() {
@@ -163,7 +169,7 @@ export class Hud {
     if (!b) { el.classList.add('hidden'); return; }
     const def = BUILDINGS[b.type];
     $('[data-info-name]', el).textContent = def.name + (b.done ? '' : ' (กำลังสร้าง)');
-    $('[data-info-hp]', el).textContent = `❤ ${Math.ceil(b.hp)}/${def.hp}`;
+    $('[data-info-hp]', el).innerHTML = `${icon('heart')}${Math.ceil(b.hp)}/${def.hp}`;
     $('[data-demolish]', el).classList.toggle('hidden', b.type === 'hall');
     el.classList.remove('hidden');
   }
@@ -241,30 +247,30 @@ export class Hud {
     this.push('menu', `
       <h2>พักเกม</h2>
       <div class="help">
-        <p>🪓 ชาวบ้านตัดไม้ ขุดหิน เก็บผลไม้เองอัตโนมัติ · มื้อเช้าอิ่มแล้วทำงานเร็วขึ้น</p>
-        <p>🏠 <b>บ้าน</b>เพิ่มประชากร · <b>ฟาร์ม</b>ผลิตอาหาร</p>
-        <p>🌙 กลางคืนมอนสเตอร์บุก ดูได้ที่ป้าย "คืนนี้จะมา" ใต้นาฬิกา (แตะเพื่อดูทิศ)</p>
-        <p>🏹 <b>หอธนู</b>ยิงตัวที่ใกล้อาคารที่สุดก่อน · <b>กำแพง</b>กันสไลม์และก็อบลิน แต่<b>ค้างคาวบินข้ามได้</b></p>
-        <p>👆 ลากเลื่อนแผนที่ · ถ่างสองนิ้วซูม · แตะอาคารเพื่อดู/รื้อ</p>
+        <p>${icon('axe')}ชาวบ้านตัดไม้ ขุดหิน เก็บผลไม้เองอัตโนมัติ มื้อเช้าอิ่มแล้วทำงานเร็วขึ้น</p>
+        <p>${icon('house')}<b>บ้าน</b>เพิ่มประชากร <b>ฟาร์ม</b>ผลิตอาหาร</p>
+        <p>${icon('moon')}กลางคืนมอนสเตอร์บุก ดูได้ที่ป้าย "คืนนี้จะมา" ใต้นาฬิกา (แตะเพื่อดูทิศ)</p>
+        <p>${icon('tower')}<b>หอธนู</b>ยิงตัวที่ใกล้อาคารที่สุดก่อน <b>กำแพง</b>กันสไลม์และก็อบลิน แต่<b>ค้างคาวบินข้ามได้</b></p>
+        <p>${icon('hand')}ลากเลื่อนแผนที่ ถ่างสองนิ้วซูม แตะอาคารเพื่อดูหรือรื้อ</p>
       </div>
       <div class="row">
         <button class="btn big" data-m="resume">เล่นต่อ</button>
         <button class="btn big" data-m="settings">ตั้งค่า</button>
-        <button class="btn big" data-m="fs">⛶ เต็มจอ</button>
+        <button class="btn big" data-m="fs">${icon('full')}เต็มจอ</button>
         <button class="btn big danger" data-m="new">เริ่มใหม่</button>
       </div>`);
   }
 
   settingsHtml() {
     const s = this.settings;
-    const slider = (k, label) => `<label class="set"><span>${label}</span><input type="range" min="0" max="100" step="5" data-set="${k}" value="${Math.round(s[k] * 100)}" aria-label="${label}"></label>`;
+    const slider = (k, label, ic) => `<label class="set"><span>${icon(ic)}${label}</span><input type="range" min="0" max="100" step="5" data-set="${k}" value="${Math.round(s[k] * 100)}" aria-label="${label}"></label>`;
     return `
       <h2>ตั้งค่า</h2>
       <div class="sets">
-        ${slider('music', '🎵 เพลง')}
-        ${slider('sfx', '🔊 เสียงเอฟเฟกต์')}
-        ${slider('shake', '📳 จอสั่น')}
-        <label class="set"><span>✨ ลดแสงกะพริบ</span><input type="checkbox" data-set="reduceFlash" ${s.reduceFlash ? 'checked' : ''}></label>
+        ${slider('music', 'เพลง', 'music')}
+        ${slider('sfx', 'เสียงเอฟเฟกต์', 'sound')}
+        ${slider('shake', 'จอสั่น', 'shake')}
+        <label class="set"><span>${icon('flash')}ลดแสงกะพริบ</span><input type="checkbox" data-set="reduceFlash" ${s.reduceFlash ? 'checked' : ''}></label>
       </div>
       <div class="row"><button class="btn big" data-m="back">กลับ</button></div>`;
   }
@@ -292,7 +298,7 @@ export class Hud {
     this.stack = [];
     this.push('over', `
       <h2>ศาลากลางถูกทำลาย</h2>
-      <p class="sub">หมู่บ้านของคุณอยู่รอดได้ <b>${esc(w.day)}</b> วัน · ปราบศัตรู <b>${esc(w.stats.kills)}</b> ตัว · ชาวบ้าน <b>${esc(w.villagers.length)}</b> คน</p>
+      <p class="sub">หมู่บ้านของคุณอยู่รอดได้ <b>${esc(w.day)}</b> วัน ปราบศัตรู <b>${esc(w.stats.kills)}</b> ตัว ชาวบ้าน <b>${esc(w.villagers.length)}</b> คน</p>
       <div class="row"><button class="btn big" data-m="new">เริ่มหมู่บ้านใหม่</button></div>`);
   }
 }

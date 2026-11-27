@@ -33,7 +33,7 @@ export default class PlayScene extends Phaser.Scene {
     this.trauma = new Trauma();
     this.hitStop = new HitStop();
     this.shakeOff = { x: 0, y: 0 };
-    this.camGoal = null;        // smooth pan target (world px) for ⌂ and the raid button
+    this.camGoal = null;        // smooth pan target (world px) for the home and raid buttons
     this.fling = { vx: 0, vy: 0 };
     this.pool = [];             // recycled particle images (performance-optimization: no create/destroy churn)
     this.hudT = 0;
@@ -225,7 +225,7 @@ export default class PlayScene extends Phaser.Scene {
     }
   }
 
-  // camera (camera-systems skill): remove last frame's shake, apply smooth pan / fling, add shake on top
+  // camera (camera-systems skill): remove last frame's shake, apply smooth pan or fling, add shake on top
   updateCamera(dt) {
     const cam = this.cameras.main;
     let x = cam.scrollX - this.shakeOff.x, y = cam.scrollY - this.shakeOff.y;
@@ -268,7 +268,7 @@ export default class PlayScene extends Phaser.Scene {
         case 'warn': this.hud.toast('ใกล้ค่ำแล้ว ชาวบ้านกำลังกลับบ้าน', 'warn'); break;
         case 'night': this.hud.toast(`กลางคืน! ศัตรู ${ev.plan.groups.reduce((a, g) => a + g.count, 0)} ตัวมาจากทิศ${['ตะวันตก', 'ตะวันออก', 'เหนือ', 'ใต้'][ev.side]}`, 'bad'); this.hud.sfx('night'); break;
         case 'day': {
-          this.hud.toast(`รุ่งเช้า วันที่ ${ev.day} · ${ev.fed ? 'กินอิ่ม ทำงานเร็วขึ้น' : 'อาหารไม่พอ ทำงานช้าลง'}`, ev.fed ? 'good' : 'warn');
+          this.hud.toast(`รุ่งเช้า วันที่ ${ev.day} ${ev.fed ? 'กินอิ่ม ทำงานเร็วขึ้น' : 'อาหารไม่พอ ทำงานช้าลง'}`, ev.fed ? 'good' : 'warn');
           const fresh = ev.plan.fresh.filter((k) => k !== 'slime');
           if (fresh.length) this.hud.toast(fresh.includes('bat') ? 'คืนนี้มีค้างคาว! บินข้ามกำแพงได้ ต้องใช้หอธนู' : 'คืนนี้มีก็อบลิน! ตัวใหญ่ ทนทาน', 'warn');
           if (ev.plan.tag === 'spike') this.hud.toast('คืนนี้คืนเดือนแดง ศัตรูมากกว่าปกติ', 'bad');

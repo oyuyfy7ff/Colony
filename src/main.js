@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import PlayScene, { loadSave, clearSave } from './scenes/PlayScene.js';
 import { Hud } from './ui/hud.js';
 import './style.css';
+import { iconURL } from './art/sprites.js';
+document.getElementById('rotate-ic').src = iconURL('phone', 6);
 
 const BASE_H = 270; // virtual pixels tall; width follows the screen's aspect
 

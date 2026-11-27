@@ -99,7 +99,7 @@ const VILLAGER = [
   '..kcccck..',
   '.kpccccpk.',
   '.kpccccpk.',
-  '..kccccк..',
+  '..kcccck..',
 ];
 const LEGS_A = ['..kNkkNk..', '..kk..kk..'];
 const LEGS_B = ['...kNNk...', '...kkkk...'];
@@ -119,7 +119,7 @@ const GOBLIN = [
   '.kek.kkk.kek',
   '..kekeeekek.',
   '...keeeeek..',
-  '...kerereк..',
+  '...kererek..',
   '...keeeeek..',
   '....kekek...',
   '...kkkkkkk..',
@@ -173,6 +173,32 @@ const ICON_FOOD = ['...kg.', '.kkkk.', 'krrork', 'krrrrk', 'kbrrbk', '.kkkk.'];
 const ICON_POP = ['.kkk..', 'khhhk.', 'kppk..', '.kk...', 'kcck..', 'kcck..'];
 
 const SHIRTS = ['c', 'r', 'o', 'l'];
+
+// UI icons (8x8 unless noted): the HUD uses these instead of emoji or font symbols.
+const UI = {
+  sun: ['y..y..y.', '.y.y.y..', '..yyy...', 'yyyoyyy.', '..yyy...', '.y.y.y..', 'y..y..y.', '........'],
+  moon: ['..kkkk..', '.kyyyk..', 'kyyyk...', 'kyyk....', 'kyyk....', 'kyyyk...', '.kyyyykk', '..kkkk..'],
+  fed: ['........', '..kkkk..', '.knyynk.', 'knyyyynk', 'knnnnnnk', 'knnnnnnk', '.kkkkkk.', '........'],
+  hungry: ['........', '........', 'kkkkkkkk', 'kwsssswk', '.kwsswk.', '..kkkk..', '........', '........'],
+  home: ['...kk...', '..kwwk..', '.kwwwwk.', 'kwwwwwwk', '.kwkkwk.', '.kwkkwk.', '.kwkkwk.', '.kkkkkk.'],
+  play: ['.k......', '.kk.....', '.kwk....', '.kwwk...', '.kwwwk..', '.kwwk...', '.kwk....', '.kk.....', '.k......'],
+  pause: ['........', 'kkk.kkk.', 'kwk.kwk.', 'kwk.kwk.', 'kwk.kwk.', 'kwk.kwk.', 'kkk.kkk.', '........'],
+  menu: ['........', 'kkkkkkkk', 'kwwwwwwk', 'kkkkkkkk', 'kwwwwwwk', 'kkkkkkkk', 'kwwwwwwk', 'kkkkkkkk'],
+  close: ['kk....kk', 'kwk..kwk', '.kwkkwk.', '..kwwk..', '..kwwk..', '.kwkkwk.', 'kwk..kwk', 'kk....kk'],
+  full: ['kkkk.kkkk', 'kwwk.kwwk', 'kwkk.kkwk', 'kkk...kkk', '.........', 'kkk...kkk', 'kwkk.kkwk', 'kwwk.kwwk', 'kkkk.kkkk'],
+  arrow: ['...k....', '...kk...', 'kkkkwk..', 'kwwwwwk.', 'kwwwwwk.', 'kkkkwk..', '...kk...', '...k....'],
+  heart: ['.kk.kk..', 'krrkrrk.', 'krorrrk.', 'krrrrrk.', '.krrrk..', '..krk...', '...k....', '........'],
+  music: ['...kkkk.', '...kwwk.', '...k..k.', '...k..k.', '.kkk.kk.', 'kwwkkwwk', 'kwwkkwwk', '.kk..kk.'],
+  sound: ['...k....', '..kk..k.', 'kkwk.k..', 'kwwk.k.k', 'kwwk.k.k', 'kkwk.k..', '..kk..k.', '...k....'],
+  shake: ['k.kkkk.k', 'k.kwwk.k', '.kkwwkk.', 'k.kwwk.k', 'k.kwwk.k', '.kkwwkk.', 'k.kwwk.k', 'k.kkkk.k'],
+  flash: ['...y....', '...y....', '..yyy...', 'yyywyyy.', '..yyy...', '...y....', '...y....', '........'],
+  axe: ['..kkk...', '.kssk...', 'kssnk...', '.kknk...', '...kn...', '....kn..', '.....kn.', '......k.'],
+  bow: ['..kk....', '.kn.k...', 'kn...k..', 'kn.kkkkk', 'kn...k..', '.kn.k...', '..kk....', '........'],
+  hand: ['...k....', '..kwk...', '..kwk...', '..kwkkk.', 'kkkwwwwk', 'kwwwwwwk', '.kwwwwk.', '..kkkk..'],
+  phone: ['kkkkkkkkkkkkkkkk', 'kDDDDDDDDDDDDDDk', 'kDccccccccccccDk', 'kDccccccccccccDk', 'kDccccccccccccwk', 'kDccccccccccccDk', 'kDccccccccccccDk', 'kDDDDDDDDDDDDDDk', 'kkkkkkkkkkkkkkkk'],
+};
+const rot = (rows, turns) => { let r = rows; for (let t = 0; t < turns; t++) r = r[0].split('').map((_, x) => r.map((row) => row[x]).reverse().join('')); return r; };
+UI.arrowE = UI.arrow; UI.arrowS = rot(UI.arrow, 1); UI.arrowW = rot(UI.arrow, 2); UI.arrowN = rot(UI.arrow, 3);
 
 function farm() {
   return canvas(16, 16, (px) => {
@@ -323,14 +349,14 @@ export function makeTextures(textures) {
   add('shadow', shadow());
   add('puff', puff());
   SHIRTS.forEach((c, i) => {
-    add(`vill${i}_0`, fromRows([...VILLAGER, ...LEGS_A], { c, 'к': 'k' }));
-    add(`vill${i}_1`, fromRows([...VILLAGER, ...LEGS_B], { c, 'к': 'k' }));
+    add(`vill${i}_0`, fromRows([...VILLAGER, ...LEGS_A], { c }));
+    add(`vill${i}_1`, fromRows([...VILLAGER, ...LEGS_B], { c }));
   });
   add('slime', fromRows(SLIME));
   add('bat_0', fromRows(BAT_A));
   add('bat_1', fromRows(BAT_B));
-  add('goblin_0', fromRows([...GOBLIN, ...GOB_A], { 'к': 'k' }));
-  add('goblin_1', fromRows([...GOBLIN, ...GOB_B], { 'к': 'k' }));
+  add('goblin_0', fromRows([...GOBLIN, ...GOB_A]));
+  add('goblin_1', fromRows([...GOBLIN, ...GOB_B]));
   add('ic_wood', fromRows(ICON_WOOD));
   add('ic_stone', fromRows(ICON_STONE));
   add('ic_food', fromRows(ICON_FOOD));
@@ -346,16 +372,27 @@ export function allSprites() {
 }
 
 // Data-URLs scaled up crisply, for the HTML HUD.
+const iconCache = new Map();
 export function iconURL(name, scale = 4) {
+  const ck = name + '@' + scale;
+  if (iconCache.has(ck)) return iconCache.get(ck);
   const src = {
     wood: fromRows(ICON_WOOD), stone: fromRows(ICON_STONE), food: fromRows(ICON_FOOD), pop: fromRows(ICON_POP),
     house: fromRows(HOUSE), farm: farm(), tower: tower(), wall: wall(),
-    slime: fromRows(SLIME), goblin: fromRows([...GOBLIN, ...GOB_A], { 'к': 'k' }), bat: fromRows(BAT_A),
-  }[name];
+    slime: fromRows(SLIME), goblin: fromRows([...GOBLIN, ...GOB_A]), bat: fromRows(BAT_A),
+  }[name] || (UI[name] && fromRows(UI[name]));
+  if (!src) throw new Error(`no icon ${name}`);
   const cv = document.createElement('canvas');
   cv.width = src.width * scale; cv.height = src.height * scale;
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(src, 0, 0, cv.width, cv.height);
-  return cv.toDataURL();
+  const url = cv.toDataURL();
+  iconCache.set(ck, url);
+  return url;
+}
+export const icon = (name, cls = 'ic') => `<img class="${cls}" src="${iconURL(name, 4)}" alt="">`;
+export const UI_ICONS = Object.keys(UI);
+export function uiIconCanvases() {
+  return Object.fromEntries(UI_ICONS.map((k) => [`ui_${k}`, fromRows(UI[k])]));
 }
