@@ -80,3 +80,12 @@ test('save and load round-trips', () => {
   assert.equal(w2.villagers.length, w.villagers.length);
   run(w2, 5);
 });
+
+test('every building is reachable: its costs only use resources some map node gives', async () => {
+  const { NODES, BUILD_ORDER } = await import('../src/rules/config.js');
+  const gatherable = new Set(Object.values(NODES).map((n) => n.gives));
+  for (const t of BUILD_ORDER) for (const k of Object.keys(BUILDINGS[t].cost)) assert.ok(gatherable.has(k), `${t} needs ${k}`);
+  const w = createWorld(1);
+  const onMap = new Set(Object.values(w.nodes).map((n) => NODES[n.t].gives));
+  for (const r of gatherable) assert.ok(onMap.has(r), `map has a source of ${r}`);
+});

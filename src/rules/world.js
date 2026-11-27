@@ -1,11 +1,12 @@
 // Pure game rules: no Phaser import. The scene reads `w` and calls the exported commands.
 import {
   MAP_W, MAP_H, DAY_LEN, NIGHT_LEN, WARN_TIME, T_GRASS, T_WATER, NODES, CARRY,
-  VILLAGER_SPEED, VILLAGER_HP, BUILDINGS, ENEMIES, GROW_EVERY, GROW_FOOD,
+  VILLAGER_SPEED, VILLAGER_HP, BUILDINGS, ENEMIES, GROW_EVERY, GROW_FOOD, FED_BONUS,
 } from './config.js';
-import { bfs } from './path.js';
+import { bfs, flowField, downhill } from './path.js';
+import { planNight } from './waves.js';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 const CYCLE = DAY_LEN + NIGHT_LEN;
 
 // ---------- random ----------
@@ -42,6 +43,7 @@ export function createWorld(seed = (Math.random() * 1e9) | 0) {
     buildings: [], villagers: [], enemies: [], shots: [], spawnQueue: [],
     nextId: 1, growT: 0, sproutT: 0, over: false,
     stats: { kills: 0, born: 0 }, events: [],
+    fed: true, nextWave: null, nextSide: 0,
   };
   const cx = (MAP_W / 2) | 0, cy = (MAP_H / 2) | 0;
   const water = valueNoise(seed ^ 0x1234, 7);
@@ -74,6 +76,7 @@ export function createWorld(seed = (Math.random() * 1e9) | 0) {
   addBuilding(w, 'hall', cx - 1, cy - 1, true);
   for (let k = 0; k < 3; k++) spawnVillager(w);
   rebuild(w);
+  previewNight(w);
   return w;
 }
 
@@ -85,6 +88,20 @@ export function rebuild(w) {
     for (let y = 0; y < def.h; y++) for (let x = 0; x < def.w; x++) b[(bd.y + y) * MAP_W + bd.x + x] = bd.id;
   }
   Object.defineProperty(w, '_b', { value: b, enumerable: false, configurable: true, writable: true });
+  w._flowDirty = true;
+}
+// Derived, not saved: the enemies' shared flow field toward any building.
+function flow(w) {
+  if (!w._flow || w._flowDirty) {
+    const f = flowField((x, y) => walkable(w, x, y), (x, y) => {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && inMap(x + dx, y + dy) && w._b[idx(x + dx, y + dy)]) return true;
+      return false;
+    });
+    Object.defineProperty(w, '_flow', { value: f, enumerable: false, configurable: true, writable: true });
+    w._flowDirty = false;
+    for (const e of w.enemies) { e.best = 999; e.stuckT = 0; } // distances changed: restart the stuck guard
+  }
+  return w._flow;
 }
 
 export const hall = (w) => w.buildings.find((b) => b.type === 'hall');
@@ -149,7 +166,7 @@ export function demolish(w, id) {
 function removeBuilding(w, b) {
   w.buildings = w.buildings.filter((x) => x !== b);
   rebuild(w);
-  for (const e of w.enemies) if (e.target === b.id) { e.target = 0; e.path = []; e.repath = 0; }
+  for (const e of w.enemies) if (e.target === b.id) { e.target = 0; e.path = []; }
   for (const v of w.villagers) if (v.job && v.job.b === b.id) resetJob(v);
 }
 
@@ -174,6 +191,7 @@ export function tick(w, dt) {
   stepShots(w, dt);
   w.enemies = w.enemies.filter((e) => {
     if (e.hp > 0) return true;
+    if (e.gaveUp) { w.events.push({ type: 'flee', x: e.x, y: e.y, kind: e.kind }); return false; }
     w.stats.kills++;
     w.events.push({ type: 'die', x: e.x, y: e.y, kind: e.kind });
     return false;
@@ -188,17 +206,20 @@ export function tick(w, dt) {
 export const isDusk = (w) => !w.night && w.clock >= DAY_LEN - WARN_TIME;
 export const phase = (w) => (w.night ? (w.clock - DAY_LEN) / NIGHT_LEN : w.clock / DAY_LEN);
 
+export function previewNight(w) {
+  w.nextWave = planNight(w.day, w.buildings.length);
+  w.nextSide = randInt(w, 4); // most enemies come from one side: readable, and walls there pay off
+}
 function startNight(w) {
   w.night = true;
-  const nb = w.buildings.length;
-  const n = 2 + Math.floor(w.day * 1.5) + Math.floor(nb / 6);
-  const gob = w.day >= 3 ? Math.floor(n / 4) + Math.floor((w.day - 3) / 2) : 0;
-  const side = randInt(w, 4); // most enemies come from one side: readable, and walls there pay off
+  if (!w.nextWave || w.nextWave.day !== w.day) previewNight(w);
+  const plan = w.nextWave, side = w.nextSide;
   w.spawnQueue = [];
-  for (let k = 0; k < n; k++) {
-    w.spawnQueue.push({ at: 2 + rand(w) * (NIGHT_LEN * 0.45), kind: k < gob ? 'goblin' : 'slime', side: rand(w) < 0.75 ? side : randInt(w, 4) });
+  for (const g of plan.groups) for (let k = 0; k < g.count; k++) {
+    w.spawnQueue.push({ at: 1 + rand(w) * (NIGHT_LEN * 0.3), kind: g.kind, hpMul: plan.hpMul, side: rand(w) < 0.75 ? side : randInt(w, 4) });
   }
-  w.events.push({ type: 'night', count: n, side });
+  w.spawnQueue.sort((a, b) => a.at - b.at);
+  w.events.push({ type: 'night', plan, side });
 }
 function startDay(w) {
   w.night = false; w.warned = false; w.clock = 0; w.day++;
@@ -209,7 +230,12 @@ function startDay(w) {
     if (v.hidden) { v.hidden = false; v.x = h.x + 0.5 + randInt(w, 2); v.y = h.y + 2.5; }
     resetJob(v);
   }
-  w.events.push({ type: 'day', day: w.day });
+  // breakfast: one food each. Fed villagers work faster today; hungry ones are just slower.
+  const need = w.villagers.length;
+  w.fed = w.stock.food >= need;
+  if (w.fed) w.stock.food -= need;
+  previewNight(w);
+  w.events.push({ type: 'day', day: w.day, fed: w.fed, plan: w.nextWave, side: w.nextSide });
 }
 
 function economy(w, dt) {
@@ -234,6 +260,7 @@ function economy(w, dt) {
       if (walkable(w, x, y) && !w.villagers.some((v) => (v.x | 0) === x && (v.y | 0) === y)) {
         const t = rand(w) < 0.8 ? 'tree' : 'rock';
         w.nodes[idx(x, y)] = { t, amt: NODES[t].amt };
+        w._flowDirty = true;
         w.events.push({ type: 'sprout', x, y });
         break;
       }
@@ -336,7 +363,9 @@ function stepVillager(w, v, dt) {
     const def = BUILDINGS[b.type];
     v.face = b.x + def.w / 2 < v.x ? -1 : 1;
     v.work += dt;
+    const sp = w.fed ? FED_BONUS : 1;
     if (!b.done) {
+      dt *= sp;
       b.progress += dt;
       b.hp = Math.min(def.hp, b.hp + (def.hp * 0.75 * dt) / def.build);
       if (b.progress >= def.build) { b.done = true; b.hp = def.hp; v.job = null; w.events.push({ type: 'built', x: b.x + def.w / 2, y: b.y, btype: b.type }); }
@@ -351,7 +380,7 @@ function stepVillager(w, v, dt) {
     if (!n || n.amt <= 0 || goHome) { v.job = null; return; }
     const nx = job.node % MAP_W;
     v.face = nx + 0.5 < v.x ? -1 : 1;
-    v.work += dt;
+    v.work += dt * (w.fed ? FED_BONUS : 1);
     const per = NODES[n.t].work;
     if (v.work >= per) {
       v.work -= per;
@@ -361,7 +390,7 @@ function stepVillager(w, v, dt) {
       w.events.push({ type: 'hit', node: job.node, t: n.t });
       if (n.amt <= 0) {
         if (n.t === 'bush') n.regrow = NODES.bush.regrow;
-        else { delete w.nodes[job.node]; w.events.push({ type: 'depleted', node: job.node, t: n.t }); }
+        else { delete w.nodes[job.node]; w._flowDirty = true; w.events.push({ type: 'depleted', node: job.node, t: n.t }); }
       }
       if (v.carry.amt >= CARRY || n.amt <= 0) v.job = null;
     }
@@ -404,36 +433,86 @@ function spawnEnemies(w) {
     const p = edgeTile(w, s.side);
     if (!p) continue;
     const def = ENEMIES[s.kind];
-    w.enemies.push({ id: w.nextId++, kind: s.kind, x: p.x + 0.5, y: p.y + 0.5, hp: def.hp, max: def.hp, path: [], target: 0, repath: 0, face: 1, attacking: false });
+    const hp = Math.round(def.hp * (s.hpMul || 1));
+    w.enemies.push({ id: w.nextId++, kind: s.kind, x: p.x + 0.5, y: p.y + 0.5, hp, max: hp, path: [], target: 0, face: 1, attacking: false, prog: 999, best: 999, stuckT: 0 });
   }
-  w.spawnQueue.sort((a, b) => a.at - b.at);
 }
 
+function nearestBuilding(w, x, y, skipWalls = false) {
+  let best = null, bd = Infinity;
+  for (const b of w.buildings) {
+    if (skipWalls && b.type === 'wall') continue;
+    const def = BUILDINGS[b.type];
+    const d = Math.hypot(Math.max(b.x - x, 0, x - (b.x + def.w)), Math.max(b.y - y, 0, y - (b.y + def.h)));
+    if (d < bd) { bd = d; best = b; }
+  }
+  return { b: best, d: bd };
+}
+
+// Layers (game-ai skill): perceive (flow field / nearest building) -> decide (approach or attack)
+// -> path (next tile downhill) -> steer (moveAlong). Stuck guard: no progress for 2 s -> give up.
 function stepEnemy(w, e, dt) {
   const def = ENEMIES[e.kind];
-  e.repath -= dt;
-  let target = e.target && w.buildings.find((b) => b.id === e.target);
-  if (!target || e.repath <= 0) {
-    e.repath = 3 + rand(w);
-    const tx = e.x | 0, ty = e.y | 0;
-    let found = null;
-    // BFS to the nearest tile beside any building: walled-in bases get their walls attacked first
-    const p = bfs(tx, ty, (x, y) => walkable(w, x, y), (x, y) => {
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if ((dx || dy) && inMap(x + dx, y + dy) && w._b[idx(x + dx, y + dy)]) { found = w._b[idx(x + dx, y + dy)]; return true; }
+  if (def.flying) {
+    const { b, d } = nearestBuilding(w, e.x, e.y, true); // flyers ignore walls entirely
+    e.prog = d;
+    if (!b) return;
+    if (d > 0.6) {
+      const bd = BUILDINGS[b.type];
+      e.path = [{ x: Math.floor(Math.min(Math.max(e.x, b.x), b.x + bd.w - 1)), y: Math.floor(Math.min(Math.max(e.y, b.y), b.y + bd.h - 1)) }];
+      e.attacking = false;
+      moveAlong(e, dt, def.speed);
+      e.path = [];
+      return;
+    }
+    return attack(w, e, b, def, dt);
+  }
+  const f = flow(w);
+  const pass = (x, y) => walkable(w, x, y);
+  let step = def.speed * dt;
+  while (step > 0) {
+    if (!e.path.length) {
+      const tx = e.x | 0, ty = e.y | 0;
+      e.prog = f[idx(tx, ty)];
+      if (e.prog === 0) break;
+      const n = downhill(f, tx, ty, pass);
+      if (!n) break;
+      e.path = [n];
+    }
+    const before = step;
+    const p = e.path[0], gx = p.x + 0.5, gy = p.y + 0.5;
+    const dx = gx - e.x, dy = gy - e.y, d = Math.hypot(dx, dy);
+    if (Math.abs(dx) > 0.01) e.face = dx < 0 ? -1 : 1;
+    if (d <= step) { e.x = gx; e.y = gy; e.path.shift(); step -= d; } // carry leftover distance
+    else { e.x += (dx / d) * step; e.y += (dy / d) * step; step = 0; }
+    if (before === step) break;
+  }
+  const tx = e.x | 0, ty = e.y | 0;
+  if (!e.path.length && f[idx(tx, ty)] === 0) {
+    let target = e.target && w.buildings.find((b) => b.id === e.target);
+    if (!target || !nextToB(tx, ty, target)) {
+      target = null;
+      for (let dy = -1; dy <= 1 && !target; dy++) for (let dx = -1; dx <= 1 && !target; dx++) {
+        const id = inMap(tx + dx, ty + dy) && w._b[idx(tx + dx, ty + dy)];
+        if (id) target = w.buildings.find((b) => b.id === id);
       }
-      return false;
-    });
-    if (p) { e.path = p; e.target = found; target = w.buildings.find((b) => b.id === found); }
+    }
+    if (target) { e.target = target.id; e.stuckT = 0; return attack(w, e, target, def, dt); }
   }
-  if (e.path.length) { e.attacking = false; moveAlong(e, dt, def.speed); return; }
-  if (target) {
-    e.attacking = true;
-    const bd = BUILDINGS[target.type];
-    e.face = target.x + bd.w / 2 < e.x ? -1 : 1;
-    target.hp -= def.dmg * dt;
-    target.hitT = w.time;
-  }
+  e.attacking = false;
+  // stuck guard
+  const prog = f[idx(tx, ty)] < 0 ? 999 : f[idx(tx, ty)];
+  if (prog < e.best) { e.best = prog; e.stuckT = 0; }
+  else if ((e.stuckT += dt) > 4) { e.hp = 0; e.gaveUp = true; }
+}
+const nextToB = (x, y, b) => { const d = BUILDINGS[b.type]; return nextTo(x, y, b.x, b.y, d.w, d.h); };
+
+function attack(w, e, target, def, dt) {
+  e.attacking = true;
+  const bd = BUILDINGS[target.type];
+  e.face = target.x + bd.w / 2 < e.x ? -1 : 1;
+  target.hp -= def.dmg * dt;
+  target.hitT = w.time;
 }
 
 function defenses(w, dt) {
@@ -444,10 +523,11 @@ function defenses(w, dt) {
     b.cd -= dt;
     if (b.cd > 0) continue;
     const cx = b.x + def.w / 2, cy = b.y + def.h / 2;
-    let best = null, bd = def.range;
+    // "first" targeting (tower-defense skill): the enemy nearest to reaching a building, not the nearest to the tower
+    let best = null;
     for (const e of w.enemies) {
-      const d = Math.hypot(e.x - cx, e.y - cy);
-      if (d < bd && e.hp > 0) { bd = d; best = e; }
+      if (e.hp <= 0 || Math.hypot(e.x - cx, e.y - cy) > def.range) continue;
+      if (!best || e.prog < best.prog) best = e;
     }
     if (best) {
       b.cd = def.rate;
@@ -470,7 +550,8 @@ function stepShots(w, dt) {
 
 // ---------- save / load ----------
 export function serialize(w) {
-  return JSON.stringify({ ...w, events: [] });
+  const { _flowDirty, ...rest } = w;
+  return JSON.stringify({ ...rest, events: [] });
 }
 export function deserialize(json) {
   const w = JSON.parse(json);

@@ -30,3 +30,41 @@ export function bfs(sx, sy, passable, isGoal, maxVisit = MAP_W * MAP_H) {
   }
   return null;
 }
+
+// Multi-source flow field (game-ai skill: many agents, one goal set -> one Dijkstra/BFS, not A*
+// per agent). dist[i] = steps from tile i to the nearest tile that touches a building; -1 = cut off.
+export function flowField(passable, isSource) {
+  const dist = new Int16Array(MAP_W * MAP_H).fill(-1);
+  const queue = [];
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+    if (passable(x, y) && isSource(x, y)) { dist[y * MAP_W + x] = 0; queue.push(y * MAP_W + x); }
+  }
+  for (let head = 0; head < queue.length; head++) {
+    const i = queue[head], x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+      const ni = ny * MAP_W + nx;
+      if (dist[ni] !== -1 || !passable(nx, ny)) continue;
+      if (dx && dy && (!passable(x + dx, y) || !passable(x, y + dy))) continue;
+      dist[ni] = dist[i] + 1;
+      queue.push(ni);
+    }
+  }
+  return dist;
+}
+
+// Next tile downhill on the field, never cutting a corner. null when already at 0 or stuck.
+export function downhill(dist, x, y, passable) {
+  const here = dist[y * MAP_W + x];
+  let best = null, bd = here < 0 ? 32767 : here;
+  for (const [dx, dy] of DIRS) {
+    const nx = x + dx, ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+    const d = dist[ny * MAP_W + nx];
+    if (d < 0 || d >= bd) continue;
+    if (dx && dy && (!passable(x + dx, y) || !passable(x, y + dy))) continue;
+    bd = d; best = { x: nx, y: ny };
+  }
+  return best;
+}
