@@ -106,3 +106,15 @@ test('breakfast: fed villages work faster, a hungry one just works normally', ()
   run(fed, 40); run(hungry, 40);
   assert.ok(s0(fed) - a > s0(hungry) - b, `fed ${s0(fed) - a} vs hungry ${s0(hungry) - b}`);
 });
+
+test('enemies only spawn where they can reach the village, even when their side is cut off', () => {
+  // seed 20261127: every walkable tile on the east edge is boxed in by trees and water
+  const w = createWorld(20261127);
+  w.nextWave = { day: w.day, groups: [{ kind: 'slime', count: 8 }], tag: 'normal', hpMul: 1, fresh: [] };
+  w.nextSide = 1;
+  toNight(w);
+  let fled = 0;
+  for (let t = 0; t < 20; t += 1 / 30) { tick(w, 1 / 30); fled += w.events.filter((e) => e.type === 'flee').length; w.events.length = 0; }
+  assert.equal(fled, 0, 'no enemy gave up');
+  assert.ok(w.stats.kills + w.enemies.length === 8, 'all 8 spawned and are fighting or dead');
+});

@@ -568,15 +568,15 @@ function moveAlong(u, dt, speed, w) {
 }
 
 // ---------- enemies ----------
+// A spawn tile on the map edge with a route to the village (trees and water can cut a side off;
+// an enemy placed there would only give up). Falls back to the other sides if this one is cut off.
+const edgeXY = (side, t) => (side === 0 ? [0, t] : side === 1 ? [MAP_W - 1, t] : side === 2 ? [t, 0] : [t, MAP_H - 1]);
 function edgeTile(w, side) {
-  for (let tries = 0; tries < 60; tries++) {
-    const t = rand(w);
-    let x, y;
-    if (side === 0) { x = 0; y = (t * MAP_H) | 0; }
-    else if (side === 1) { x = MAP_W - 1; y = (t * MAP_H) | 0; }
-    else if (side === 2) { x = (t * MAP_W) | 0; y = 0; }
-    else { x = (t * MAP_W) | 0; y = MAP_H - 1; }
-    if (walkable(w, x, y)) return { x, y };
+  const f = flow(w);
+  for (const s of [side, (side + 1) % 4, (side + 2) % 4, (side + 3) % 4]) {
+    const n = s < 2 ? MAP_H : MAP_W, ok = [];
+    for (let t = 0; t < n; t++) { const [x, y] = edgeXY(s, t); if (walkable(w, x, y) && f[idx(x, y)] >= 0) ok.push({ x, y }); }
+    if (ok.length) return ok[randInt(w, ok.length)];
   }
   return null;
 }

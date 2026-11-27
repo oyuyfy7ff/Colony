@@ -130,11 +130,20 @@ export class Hud {
   stocks() {
     const w = this.scene.w;
     for (const r in this.el.res) {
-      const v = String(w.stock[r]);
-      if (this.el.res[r].textContent === v) continue;
-      this.el.res[r].textContent = v;
-      const chip = this.el.res[r].parentElement;
-      chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump');
+      const el = this.el.res[r], to = w.stock[r];
+      if (el._to === to) continue;
+      const from = +el.textContent || 0;
+      el._to = to;
+      cancelAnimationFrame(el._raf);
+      // gains count up smoothly; spending shows at once so the cost is clear
+      if (to < from) el.textContent = String(to);
+      else {
+        const t0 = performance.now();
+        const step = (t) => { const k = Math.min(1, (t - t0) / 450); el.textContent = String(Math.round(from + (to - from) * (1 - (1 - k) ** 3))); if (k < 1) el._raf = requestAnimationFrame(step); };
+        el._raf = requestAnimationFrame(step);
+      }
+      const chip = el.parentElement;
+      chip.classList.remove('bump', 'dip'); void chip.offsetWidth; chip.classList.add(to < from ? 'dip' : 'bump');
     }
     this.el.pop.textContent = `${w.villagers.length}/${popCap(w)}`;
   }
@@ -143,7 +152,10 @@ export class Hud {
     const s = this.scene; if (!s) return;
     const w = s.w;
     const day = `วันที่ ${w.day}`;
-    if (force || this.el.day.textContent !== day) this.el.day.textContent = day;
+    if (force || this.el.day.textContent !== day) {
+      if (this.el.day.textContent && this.el.day.textContent !== day) { const row = this.el.day.parentElement; row.classList.remove('bump'); void row.offsetWidth; row.classList.add('bump'); }
+      this.el.day.textContent = day;
+    }
     const di = w.night ? 'moon' : 'sun';
     if (force || this._di !== di) { this._di = di; this.root.querySelector('[data-dayicon]').src = iconURL(di); }
     this.el.sun.style.width = `${Math.min(100, (w.clock / (DAY_LEN + NIGHT_LEN)) * 100).toFixed(1)}%`;
@@ -223,8 +235,9 @@ export class Hud {
 
   toast(text, kind = 'info') {
     // sit just under the clock panel, whatever its height on this screen
-    const clockBox = this.root.querySelector('.clock').getBoundingClientRect();
-    this.el.toasts.style.top = `${Math.round(clockBox.bottom + 6)}px`;
+    // layout position, not the on-screen box: the clock may still be sliding in
+    const c = this.root.querySelector('.clock');
+    this.el.toasts.style.top = `${Math.round(c.offsetParent.getBoundingClientRect().top + c.offsetTop + c.offsetHeight + 6)}px`;
     const t = document.createElement('div');
     t.className = `toast t-${kind}`; // prefixed: a bare 'info' class would pick up the info card styles
     t.textContent = text;
@@ -249,7 +262,18 @@ export class Hud {
   render() {
     const top = this.stack.at(-1);
     if (this.scene) this.scene.paused = !!top || this.scene.w.over;
-    if (!top) { this.el.modal.classList.add('hidden'); this.el.modal.innerHTML = ''; this.clock(true); return; }
+    if (!top) {
+      // the real modal closes at once; a copy fades out on top so closing looks smooth
+      if (!this.el.modal.classList.contains('hidden')) {
+        const ghost = this.el.modal.cloneNode(true);
+        ghost.removeAttribute('data-modal'); ghost.classList.add('closing'); ghost.setAttribute('aria-hidden', 'true');
+        ghost.querySelectorAll('[data-m], button, input').forEach((e) => { e.removeAttribute('data-m'); e.tabIndex = -1; });
+        this.el.modal.after(ghost);
+        setTimeout(() => ghost.remove(), 200);
+        this.root.classList.add('intro'); // first close (leaving the title) slides the HUD in
+      }
+      this.el.modal.classList.add('hidden'); this.el.modal.innerHTML = ''; this.clock(true); return;
+    }
     this.el.modal.innerHTML = `<div class="card">${top.html}</div>`;
     this.el.modal.classList.remove('hidden');
     this.wireModal(top.name);
